@@ -9,15 +9,16 @@ CREATE TABLE IF NOT EXISTS Users (
 );
 
 CREATE TABLE IF NOT EXISTS Restaurants (
-    id             INT PRIMARY KEY AUTO_INCREMENT,
-    owner_id       INT NOT NULL,  -- Doanh nhân sở hữu nhà hàng
-    name           VARCHAR(255) NOT NULL,
-    address        TEXT NOT NULL,
-    phone          VARCHAR(20) NOT NULL,
-    description    TEXT,
-    menu_image     VARCHAR(255), -- Ảnh menu
-    status         ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
-    created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id                  INT PRIMARY KEY AUTO_INCREMENT,
+    owner_id            INT NOT NULL,  -- Doanh nhân sở hữu nhà hàng
+    name                VARCHAR(255) NOT NULL,
+    address             TEXT NOT NULL,
+    hotline             VARCHAR(20) NOT NULL,
+    description         TEXT,
+    menu_image          VARCHAR(255), -- Ảnh menu
+    restaurant_image    VARCHAR(255), -- Ảnh nhà hàng
+    status              ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
+    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES Users(id) ON DELETE CASCADE
 );
 

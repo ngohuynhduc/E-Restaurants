@@ -37,19 +37,19 @@ export const authLogin = async (req: any, res: Response, next: NextFunction): Pr
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return handleResponse(res, 400, 'Email and password are required', null);
+      return handleResponse(res, 400, 'Nhập email/password', null);
     }
 
     const user: UserTypes = await authLoginService(email);
 
     if (!user) {
-      return handleResponse(res, 401, 'Email and password are incorrect', null);
+      return handleResponse(res, 401, 'Sai tài khoản hoặc mật khẩu', null);
     }
 
     const validPasswrod = await bcrypt.compare(password, user.password);
     console.log('🚀 ~ authLogin ~ validPasswrod:', validPasswrod);
     if (!validPasswrod) {
-      return handleResponse(res, 401, 'Email and password are incorrect', null);
+      return handleResponse(res, 401, 'Sai tài khoản hoặc mật khẩu', null);
     }
 
     const accessToken = generateAccessToken(user);
@@ -62,7 +62,10 @@ export const authLogin = async (req: any, res: Response, next: NextFunction): Pr
       sameSite: 'none',
     });
 
-    return handleResponse(res, 200, 'User logged in successfully', { accessToken, user: { id: user.id, full_name: user.full_name, role: user.role } });
+    return handleResponse(res, 200, 'Đăng nhập thành công!', {
+      accessToken,
+      user: { id: user.id, full_name: user.full_name, role: user.role, email: user.email },
+    });
   } catch (err) {
     next(err);
     return;
@@ -73,17 +76,17 @@ export const authSignup = async (req: any, res: Response, next: NextFunction): P
   try {
     const { full_name, email, password, phone, role }: UserTypes = req.body;
     if (!full_name || !email || !password || !phone) {
-      return handleResponse(res, 400, 'Full name, phone, email and password are required', null);
+      return handleResponse(res, 400, 'Mời bạn nhập đủ thông tin', null);
     }
 
     const existingUser = await getExistingUserByEmailService(email);
     if (existingUser) {
-      return handleResponse(res, 400, 'Email is already registered', null);
+      return handleResponse(res, 400, 'Email đã được đăng ký', null);
     }
 
     const user: UserTypes = await authRegisterService(full_name, email, password, phone, role);
 
-    return handleResponse(res, 200, 'User registered successfully', user);
+    return handleResponse(res, 201, 'Đăng ký thành công', user);
   } catch (err) {
     next(err);
     return;

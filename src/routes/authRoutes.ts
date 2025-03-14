@@ -5,6 +5,10 @@ const router = express.Router();
 
 router.post('/login', authLogin as any);
 router.post('/signup', authSignup as any);
+router.post('/logout', (req, res) => {
+  res.clearCookie('refreshToken');
+  res.send('Logout success!');
+});
 // router.get('/users/:id', getUserById as any);
 // router.put('/update-users/:id', updateUser);
 // router.delete('/delete-users/:id', deleteUser);
