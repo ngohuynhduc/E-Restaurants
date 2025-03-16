@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS Restaurants (
     description         TEXT,
     menu_image          VARCHAR(255), -- Ảnh menu
     restaurant_image    VARCHAR(255), -- Ảnh nhà hàng
+    coordinate          POINT, -- Vị trí nhà hàng
     status              ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
     created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES Users(id) ON DELETE CASCADE
