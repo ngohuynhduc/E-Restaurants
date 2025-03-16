@@ -1,5 +1,7 @@
 import pool from '../config/db';
 import bcrypt from 'bcryptjs';
+import { PoolConnection } from 'mariadb';
+import { RegisterRestaurant, TablesRegisterRequest } from '../shares/type';
 
 export const authLoginService = async (email: string) => {
   try {
@@ -12,11 +14,10 @@ export const authLoginService = async (email: string) => {
   }
 };
 
-export const authRegisterService = async (full_name: string, email: string, password: string, phone: string, role: string) => {
+export const authRegisterService = async (full_name: string, email: string, password: string, phone: string, role: string, conn: PoolConnection) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const conn = await pool.getConnection();
     const rows = await conn.query('INSERT INTO users (full_name, email, password, phone, role) VALUES (?, ?, ?, ?, ?)', [
       full_name,
       email,
@@ -31,7 +32,6 @@ export const authRegisterService = async (full_name: string, email: string, pass
     const [user] = await conn.query('SELECT id, full_name, email, phone, role FROM users WHERE id = ?', insertId);
     console.log('🚀 ~ authRegisterService ~ user:', user);
 
-    conn.release();
     return user;
   } catch (err: any) {
     console.log('🚀 ~ authRegisterService ~ err:', err);
@@ -39,13 +39,43 @@ export const authRegisterService = async (full_name: string, email: string, pass
   }
 };
 
-export const getExistingUserByEmailService = async (email: string) => {
+export const getExistingUserByEmailService = async (email: string, conn: PoolConnection) => {
   try {
-    const conn = await pool.getConnection();
     const [rows] = await conn.query('SELECT * FROM users WHERE email = ?', [email]);
-    conn.release();
     return rows;
   } catch (err: any) {
     throw new Error(err);
+  }
+};
+
+export const authRegisterRestaurantService = async (params: RegisterRestaurant) => {
+  try {
+    const { userId, address, coordinate, hotline, menu_image, name, restaurant_image, description, conn } = params;
+
+    const coords = coordinate.split(',');
+    const lat = parseFloat(coords[0]);
+    const lng = parseFloat(coords[1]);
+    const pointConventions = `POINT(${lng} ${lat})`;
+
+    const restaurantResult = await conn.query(
+      'INSERT INTO restaurants (owner_id, name, address, hotline, description, menu_image, restaurant_image, coordinate) VALUES (?, ?, ?, ?, ?, ?, ?, ST_GeomFromText(?))',
+      [userId, name, address, hotline, description, JSON.stringify(menu_image), JSON.stringify(restaurant_image), pointConventions],
+    );
+    console.log('🚀 ~ authRegisterRestaurantService ~ restaurantResult:', restaurantResult.insertId);
+    return Number(restaurantResult.insertId);
+  } catch (error: any) {
+    console.log('🚀 ~ authRegisterRestaurantService ~ error:', error);
+    throw new Error(error);
+  }
+};
+
+export const registerTablesService = async (restaurantId: number, tables: TablesRegisterRequest, conn: PoolConnection) => {
+  const tableEntries = Object.entries(tables);
+  for (const [tableType, quantity] of tableEntries) {
+    if (quantity > 0) {
+      const tableTypeNumber = tableType.replace(/\D/g, '').toString();
+
+      await conn.query('INSERT INTO tables (restaurant_id, table_type, quantity) VALUES (?, ?, ?)', [restaurantId, tableTypeNumber, quantity]);
+    }
   }
 };

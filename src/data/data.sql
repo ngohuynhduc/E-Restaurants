@@ -10,14 +10,14 @@ CREATE TABLE IF NOT EXISTS Users (
 
 CREATE TABLE IF NOT EXISTS Restaurants (
     id                  INT PRIMARY KEY AUTO_INCREMENT,
-    owner_id            INT NOT NULL,  -- Doanh nhân sở hữu nhà hàng
+    owner_id            INT NOT NULL,
     name                VARCHAR(255) NOT NULL,
     address             TEXT NOT NULL,
     hotline             VARCHAR(20) NOT NULL,
     description         TEXT,
-    menu_image          VARCHAR(255), -- Ảnh menu
-    restaurant_image    VARCHAR(255), -- Ảnh nhà hàng
-    coordinate          POINT, -- Vị trí nhà hàng
+    menu_image          JSON,
+    restaurant_image    JSON,
+    coordinate          POINT,
     status              ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
     created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES Users(id) ON DELETE CASCADE
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS Tables (
     id             INT PRIMARY KEY AUTO_INCREMENT,
     restaurant_id  INT NOT NULL,
     table_type     ENUM('2', '4', '6') NOT NULL, -- Chỉ cho phép 2, 4, 6 chỗ
-    quantity       INT NOT NULL,  -- Số lượng bàn mỗi loại
+    quantity       INT NOT NULL,
     FOREIGN KEY (restaurant_id) REFERENCES Restaurants(id) ON DELETE CASCADE
 );
 
@@ -36,9 +36,9 @@ CREATE TABLE IF NOT EXISTS Reservations (
     user_id        INT NOT NULL,
     restaurant_id  INT NOT NULL,
     table_type     ENUM('2', '4', '6') NOT NULL,
-    num_tables     INT NOT NULL,  -- Số bàn đặt
+    num_tables     INT NOT NULL,
     date           DATE NOT NULL,
-    time_slot      ENUM('LUNCH', 'DINNER') NOT NULL, -- Đặt theo buổi
+    time_slot      ENUM('LUNCH', 'DINNER') NOT NULL,
     status         ENUM('PENDING', 'CONFIRMED', 'CANCELLED') DEFAULT 'PENDING',
     note           TEXT,
     created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS Promotions (
     restaurant_id  INT NOT NULL,
     title          VARCHAR(255) NOT NULL,
     description    TEXT NOT NULL,
-    discount       DECIMAL(5,2) NOT NULL,  -- % giảm giá
+    discount       DECIMAL(5,2) NOT NULL,
     start_date     DATE NOT NULL,
     end_date       DATE NOT NULL,
     created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

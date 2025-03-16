@@ -1,5 +1,6 @@
 import express from 'express';
-import { authLogin, authSignup } from '../controllers/authController';
+import { authBusinessRegister, authLogin, authSignup } from '../controllers/authController';
+import { optionalAuthentication } from '../middlewares/authenticate';
 
 const router = express.Router();
 
@@ -9,6 +10,7 @@ router.post('/logout', (req, res) => {
   res.clearCookie('refreshToken');
   res.send('Logout success!');
 });
+router.post('/business-register', optionalAuthentication, authBusinessRegister as any);
 // router.get('/users/:id', getUserById as any);
 // router.put('/update-users/:id', updateUser);
 // router.delete('/delete-users/:id', deleteUser);

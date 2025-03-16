@@ -17,9 +17,11 @@ export const createDataTable = async () => {
         owner_id       INT NOT NULL,
         name           VARCHAR(255) NOT NULL,
         address        TEXT NOT NULL,
-        phone          VARCHAR(20) NOT NULL,
+        hotline        VARCHAR(20) NOT NULL,
         description    TEXT,
-        menu_image     VARCHAR(255),
+        menu_image     JSON,
+        restaurant_image    JSON,
+        coordinate     POINT,
         status         ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
         created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (owner_id) REFERENCES Users(id) ON DELETE CASCADE
