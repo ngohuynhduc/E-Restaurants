@@ -61,10 +61,8 @@ export const authRegisterRestaurantService = async (params: RegisterRestaurant) 
       'INSERT INTO restaurants (owner_id, name, address, hotline, description, menu_image, restaurant_image, coordinate) VALUES (?, ?, ?, ?, ?, ?, ?, ST_GeomFromText(?))',
       [userId, name, address, hotline, description, JSON.stringify(menu_image), JSON.stringify(restaurant_image), pointConventions],
     );
-    console.log('🚀 ~ authRegisterRestaurantService ~ restaurantResult:', restaurantResult.insertId);
     return Number(restaurantResult.insertId);
   } catch (error: any) {
-    console.log('🚀 ~ authRegisterRestaurantService ~ error:', error);
     throw new Error(error);
   }
 };

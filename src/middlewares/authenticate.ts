@@ -28,6 +28,7 @@ export const optionalAuthentication = (req: any, res: Response, next: NextFuncti
   const JWT_SECRET = process.env.ACCESS_TOKEN_SECRET || 'scret-key';
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
+  console.log('🚀 ~ optionalAuthentication ~ token:', req);
 
   if (!token) {
     (req as any).user = null;

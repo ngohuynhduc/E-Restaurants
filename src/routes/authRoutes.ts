@@ -11,8 +11,5 @@ router.post('/logout', (req, res) => {
   res.send('Logout success!');
 });
 router.post('/business-register', optionalAuthentication, authBusinessRegister as any);
-// router.get('/users/:id', getUserById as any);
-// router.put('/update-users/:id', updateUser);
-// router.delete('/delete-users/:id', deleteUser);
 
 export default router;

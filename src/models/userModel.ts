@@ -42,7 +42,7 @@ export const createUserService = async (name: string, email: string) => {
 export const getUserByIdService = async (id: string) => {
   try {
     const conn = await pool.getConnection();
-    const [rows] = await conn.query('SELECT * FROM users WHERE id = ?', [id]);
+    const [rows] = await conn.query('SELECT id, full_name, email, phone, role FROM users WHERE id = ?', [id]);
     conn.release();
     return rows;
   } catch (err: any) {

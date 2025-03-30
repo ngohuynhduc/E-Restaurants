@@ -31,13 +31,17 @@ export const getAllUser = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-export const getUserById = async (req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
+export const getUserById = async (req: any, res: Response, next: NextFunction): Promise<Response | void> => {
   try {
-    const { id } = req.params;
-    const user = await getUserByIdService(id);
+    const userId = req.user?.id;
+    if (!userId) {
+      return handleResponse(res, 400, 'User id is required', null);
+    }
+    console.log('🚀 ~ getUserById ~ userId:', userId);
+    const user = await getUserByIdService(userId);
+    console.log('🚀 ~ getUserById ~ user:', user);
     return handleResponse(res, 200, 'User fetched successfully', user);
   } catch (error) {
     next(error);
-    return;
   }
 };
