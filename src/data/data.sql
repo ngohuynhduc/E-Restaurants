@@ -18,9 +18,17 @@ CREATE TABLE IF NOT EXISTS restaurants (
     menu_image          JSON,
     restaurant_image    JSON,
     coordinate          POINT,
-    status              ENUM('PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED') DEFAULT 'PENDING',
+    price_range         VARCHAR(50) NOT NULL,
+    category_id         INT NOT NULL,
+    status              ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
     created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (owner_id) REFERENCES Users(id) ON DELETE CASCADE
+    FOREIGN KEY (owner_id) REFERENCES Users(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+    id          INT PRIMARY KEY AUTO_INCREMENT,
+    name        VARCHAR(255) NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS tables (

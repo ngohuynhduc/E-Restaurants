@@ -53,8 +53,8 @@ export const authRegisterRestaurantService = async (params: RegisterRestaurant) 
     const { userId, address, coordinate, hotline, menu_image, name, restaurant_image, description, conn } = params;
 
     const coords = coordinate.split(',');
-    const lat = parseFloat(coords[0]);
-    const lng = parseFloat(coords[1]);
+    const lng = parseFloat(coords[0]);
+    const lat = parseFloat(coords[1]);
     const pointConventions = `POINT(${lng} ${lat})`;
 
     const restaurantResult = await conn.query(
