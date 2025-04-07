@@ -18,3 +18,18 @@ export const getNewestRestaurantService = async () => {
     throw new Error(err);
   }
 };
+
+export const getCategoriesService = async () => {
+  try {
+    const conn = await pool.getConnection();
+    const rows = await conn.query(`
+      SELECT * FROM categories
+    `);
+    console.log('🚀 ~ getCategories ~ rows:', rows);
+    conn.release();
+
+    return rows;
+  } catch (error: any) {
+    throw new Error(error);
+  }
+};

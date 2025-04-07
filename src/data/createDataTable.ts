@@ -12,6 +12,11 @@ export const createDataTable = async () => {
         created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );`,
 
+    `CREATE TABLE IF NOT EXISTS categories (
+      id          INT PRIMARY KEY AUTO_INCREMENT,
+      name        VARCHAR(255) NOT NULL UNIQUE
+  )`,
+
     `CREATE TABLE IF NOT EXISTS restaurants (
         id                  INT PRIMARY KEY AUTO_INCREMENT,
         owner_id            INT NOT NULL,
@@ -26,21 +31,16 @@ export const createDataTable = async () => {
         category_id         INT NOT NULL,
         status              ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
         created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (owner_id) REFERENCES Users(id) ON DELETE CASCADE,
+        FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
     );`,
-
-    `CREATE TABLE IF NOT EXISTS categories (
-        id          INT PRIMARY KEY AUTO_INCREMENT,
-        name        VARCHAR(255) NOT NULL UNIQUE
-    )`,
 
     `CREATE TABLE IF NOT EXISTS tables (
         id             INT PRIMARY KEY AUTO_INCREMENT,
         restaurant_id  INT NOT NULL,
         table_type     ENUM('2', '4', '6') NOT NULL,
         quantity       INT NOT NULL,
-        FOREIGN KEY (restaurant_id) REFERENCES Restaurants(id) ON DELETE CASCADE
+        FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
     );`,
 
     `CREATE TABLE IF NOT EXISTS reservations (
@@ -54,8 +54,8 @@ export const createDataTable = async () => {
         status         ENUM('PENDING', 'CONFIRMED', 'CANCELLED') DEFAULT 'PENDING',
         note           TEXT,
         created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
-        FOREIGN KEY (restaurant_id) REFERENCES Restaurants(id) ON DELETE CASCADE
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
     );`,
 
     `CREATE TABLE IF NOT EXISTS reviews (
@@ -66,8 +66,8 @@ export const createDataTable = async () => {
         comment        TEXT,
         image          VARCHAR(255),
         created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
-        FOREIGN KEY (restaurant_id) REFERENCES Restaurants(id) ON DELETE CASCADE
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
     );`,
 
     `CREATE TABLE IF NOT EXISTS promotions (
@@ -79,7 +79,7 @@ export const createDataTable = async () => {
         start_date     DATE NOT NULL,
         end_date       DATE NOT NULL,
         created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (restaurant_id) REFERENCES Restaurants(id) ON DELETE CASCADE
+        FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
     );`,
 
     `CREATE TABLE IF NOT EXISTS messages (
@@ -88,7 +88,7 @@ export const createDataTable = async () => {
         message        TEXT NOT NULL,
         response       TEXT NOT NULL,
         created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE SET NULL
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     );`,
   ];
 
