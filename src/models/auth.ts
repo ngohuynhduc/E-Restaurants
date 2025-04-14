@@ -50,7 +50,7 @@ export const getExistingUserByEmailService = async (email: string, conn: PoolCon
 
 export const authRegisterRestaurantService = async (params: RegisterRestaurant) => {
   try {
-    const { userId, address, coordinate, hotline, menu_image, name, restaurant_image, description, conn } = params;
+    const { userId, address, coordinate, hotline, menu_image, name, restaurant_image, description, price_min, price_max, categories, open_time, conn } = params;
 
     const coords = coordinate.split(',');
     const lng = parseFloat(coords[0]);
@@ -58,10 +58,35 @@ export const authRegisterRestaurantService = async (params: RegisterRestaurant) 
     const pointConventions = `POINT(${lng} ${lat})`;
 
     const restaurantResult = await conn.query(
-      'INSERT INTO restaurants (owner_id, name, address, hotline, description, menu_image, restaurant_image, coordinate) VALUES (?, ?, ?, ?, ?, ?, ?, ST_GeomFromText(?))',
-      [userId, name, address, hotline, description, JSON.stringify(menu_image), JSON.stringify(restaurant_image), pointConventions],
+      'INSERT INTO restaurants (owner_id, name, address, hotline, description, menu_image, restaurant_image, coordinate, price_min, price_max) VALUES (?, ?, ?, ?, ?, ?, ?, ST_GeomFromText(?), ?, ?)',
+      [userId, name, address, hotline, description, JSON.stringify(menu_image), JSON.stringify(restaurant_image), pointConventions, price_min, price_max],
     );
-    return Number(restaurantResult.insertId);
+
+    const restaurantId = Number(restaurantResult.insertId);
+
+    if (Array.isArray(categories)) {
+      for (const categoryId of categories) {
+        await conn.query('INSERT INTO restaurant_categories (restaurant_id, category_id) VALUES (?, ?)', [restaurantId, categoryId]);
+      }
+    }
+
+    if (open_time?.days?.length) {
+      const lunchFrom = open_time.lunchHours?.from || null;
+      const lunchTo = open_time.lunchHours?.to || null;
+      const dinnerFrom = open_time.dinnerHours?.from || null;
+      const dinnerTo = open_time.dinnerHours?.to || null;
+
+      for (const day of open_time.days) {
+        await conn.query(
+          `INSERT INTO restaurant_open_times (
+            restaurant_id, day_of_week, lunch_from, lunch_to, dinner_from, dinner_to
+          ) VALUES (?, ?, ?, ?, ?, ?)`,
+          [restaurantId, day, lunchFrom, lunchTo, dinnerFrom, dinnerTo],
+        );
+      }
+    }
+
+    return restaurantId;
   } catch (error: any) {
     throw new Error(error);
   }

@@ -116,10 +116,14 @@ export const authBusinessRegister = async (req: any, res: Response, next: NextFu
       menu_image,
       restaurant_image,
       tables,
+      price_min,
+      price_max,
+      categories,
+      open_time,
     }: SignupRequest & RestaurantRegisterRequest = req.body;
 
     let userId = req.user?.id;
-    // console.log('🚀 ~ authBusinessRegister ~ req.body:', req.body, userId);
+    console.log('🚀 ~ authBusinessRegister ~ req.body:', req.body, userId);
 
     if (!name || !address || !coordinate || !hotline || !menu_image || !restaurant_image || !tables) {
       return handleResponse(res, 400, 'Mời bạn nhập đủ thông tin', null);
@@ -150,6 +154,10 @@ export const authBusinessRegister = async (req: any, res: Response, next: NextFu
       name,
       restaurant_image,
       description,
+      price_min,
+      price_max,
+      categories,
+      open_time,
       conn,
     } as RegisterRestaurant);
 

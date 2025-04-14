@@ -33,6 +33,10 @@ export interface RestaurantRegisterRequest {
   description?: string;
   menu_image: RequestImageType[];
   restaurant_image: RequestImageType[];
+  price_min: number;
+  price_max: number;
+  categories: number[];
+  open_time: any;
   tables: TablesRegisterRequest;
 }
 
@@ -51,3 +55,11 @@ export interface RegisterRestaurant extends RestaurantRegisterRequest {
   userId: number;
   conn: PoolConnection;
 }
+
+export type FilterQueryOptions = {
+  categoryId?: number;
+  keyword?: string;
+  priceMin?: number;
+  priceMax?: number;
+  dayOfWeek?: string;
+};
