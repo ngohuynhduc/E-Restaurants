@@ -28,7 +28,6 @@ export const optionalAuthentication = (req: any, res: Response, next: NextFuncti
   const JWT_SECRET = process.env.ACCESS_TOKEN_SECRET || 'scret-key';
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  console.log('🚀 ~ optionalAuthentication ~ token:', req);
 
   if (!token) {
     (req as any).user = null;
@@ -36,15 +35,12 @@ export const optionalAuthentication = (req: any, res: Response, next: NextFuncti
   }
 
   try {
-    // Xác thực token
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    // Thêm thông tin người dùng vào request
     (req as any).user = decoded;
     next();
   } catch (error) {
-    console.log('🚀 ~ optionalAuthentication ~ error:', error);
-    // Token không hợp lệ, coi như user chưa đăng nhập
     (req as any).user = null;
+    (req as any).authMessage = error;
     next();
   }
 };

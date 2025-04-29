@@ -63,3 +63,18 @@ export type FilterQueryOptions = {
   priceMax?: number;
   dayOfWeek?: string;
 };
+
+export interface reservationType extends reservationRequest {
+  user?: any;
+  conn?: PoolConnection;
+}
+
+export type reservationRequest = {
+  restaurant_id: number;
+  user_id: number;
+  phone: string;
+  guest_count: number;
+  date: string;
+  arrival_time: string;
+  note?: string;
+};

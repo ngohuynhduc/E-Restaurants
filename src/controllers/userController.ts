@@ -34,7 +34,12 @@ export const getAllUser = async (req: Request, res: Response, next: NextFunction
 export const getUserById = async (req: any, res: Response, next: NextFunction): Promise<Response | void> => {
   try {
     const userId = req.user?.id;
+    const userMessage = await req.authMessage?.toString();
+    console.log('🚀 ~ getUserById ~ userMessage:', typeof userMessage);
     if (!userId) {
+      if (userMessage.includes('jwt expired')) {
+        return handleResponse(res, 401, 'Token expired', null);
+      }
       return handleResponse(res, 400, 'User id is required', null);
     }
     console.log('🚀 ~ getUserById ~ userId:', userId);

@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS restaurant_categories (
 CREATE TABLE IF NOT EXISTS tables (
     id             INT PRIMARY KEY AUTO_INCREMENT,
     restaurant_id  INT NOT NULL,
-    table_type     ENUM('2', '4', '6') NOT NULL, -- Chỉ cho phép 2, 4, 6 chỗ
+    table_type     ENUM('2', '4', '6') NOT NULL,
     quantity       INT NOT NULL,
     FOREIGN KEY (restaurant_id) REFERENCES Restaurants(id) ON DELETE CASCADE
 );
@@ -60,9 +60,10 @@ CREATE TABLE IF NOT EXISTS tables (
 CREATE TABLE IF NOT EXISTS reservations (
     id             INT PRIMARY KEY AUTO_INCREMENT,
     user_id        INT NOT NULL,
+    phone          VARCHAR(20) NOT NULL,
     restaurant_id  INT NOT NULL,
-    table_type     ENUM('2', '4', '6') NOT NULL,
-    num_tables     INT NOT NULL,
+    guest_count    INT NOT NULL,
+    arrival_time   TIME NOT NULL;
     date           DATE NOT NULL,
     time_slot      ENUM('LUNCH', 'DINNER') NOT NULL,
     status         ENUM('PENDING', 'CONFIRMED', 'CANCELLED') DEFAULT 'PENDING',
@@ -70,6 +71,16 @@ CREATE TABLE IF NOT EXISTS reservations (
     created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
     FOREIGN KEY (restaurant_id) REFERENCES Restaurants(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS reservation_tables (
+    id              INT PRIMARY KEY AUTO_INCREMENT,
+    reservation_id  INT NOT NULL,
+    table_id        INT NOT NULL,
+    status          ENUM('HOLDING', 'CONFIRMED') DEFAULT 'HOLDING',
+    hold_expiration TIMESTAMP NULL DEFAULT NULL,
+    FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE,
+    FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS reviews (

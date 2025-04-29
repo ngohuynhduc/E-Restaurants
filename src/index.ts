@@ -5,6 +5,7 @@ import pool from './config/db';
 import userRoutes from './routes/userRoutes';
 import authRoutes from './routes/authRoutes';
 import restaurantRoutes from './routes/restaurantRoutes';
+import reservationRoutes from './routes/reservationsRoutes';
 import errorHandling from './middlewares/errorHandler';
 import { createDataTable } from './data/createDataTable';
 
@@ -23,6 +24,7 @@ app.use(cors());
 app.use('/api', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/restaurant', restaurantRoutes);
+app.use('/api/reservations', reservationRoutes);
 
 // Error handling
 
