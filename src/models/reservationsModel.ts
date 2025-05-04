@@ -11,13 +11,17 @@ function determineTimeSlot(arrival_time: string) {
 type Table = { id: number; type: number };
 
 async function allocateTables(restaurant_id: number, guest_count: number, date: string, timeSlot: string, conn: PoolConnection) {
-  if (guest_count <= 0) return null;
+  if (guest_count <= 0 || guest_count > 20) return null;
+
+  if (guest_count >= 10 && guest_count % 2 !== 0) {
+    guest_count += 1; // Làm chẵn để khớp phương án
+  }
 
   const rows = await conn.query(
     `
     SELECT 
       t.id, 
-      CAST(t.table_type AS UNSIGNED) AS table_type,
+      t.table_type,
       t.quantity,
       COUNT(rt.id) AS reserved_count
     FROM tables t
@@ -35,370 +39,127 @@ async function allocateTables(restaurant_id: number, guest_count: number, date: 
     [date, timeSlot, restaurant_id],
   );
 
-  const tables = rows as {
+  const tablesRaw = rows as {
     id: number;
-    table_type: number;
+    table_type: string;
     quantity: number;
     reserved_count: number;
   }[];
 
-  const availableTables: Table[] = [];
+  const availableTables = new Map<number, { id: number; available: number }>();
 
-  for (const t of tables) {
-    const availableCount = Math.min(Number(t.quantity) - Number(t.reserved_count), 10); // giới hạn để tránh treo server
-    for (let i = 0; i < availableCount; i++) {
-      availableTables.push({ id: t.id, type: t.table_type });
+  for (const table of tablesRaw) {
+    const type = parseInt(table.table_type);
+    const available = Number(table.quantity) - Number(table.reserved_count);
+    if (available > 0) {
+      availableTables.set(type, { id: table.id, available });
     }
   }
 
-  availableTables.sort((a, b) => b.type - a.type); // Ưu tiên bàn lớn
+  const hasTable2 = availableTables.has(2) && availableTables.get(2)!.available > 0;
+  const hasTable4 = availableTables.has(4) && availableTables.get(4)!.available > 0;
+  const hasTable6 = availableTables.has(6) && availableTables.get(6)!.available > 0;
 
-  let bestCombo: Table[] = [];
-  let bestRemaining = Infinity;
-  let bestTableCount = Infinity;
+  const optimalAllocations = new Map<number, number[]>();
+  optimalAllocations.set(1, [2, 1]);
+  optimalAllocations.set(2, [2, 1]);
+  optimalAllocations.set(3, [4, 1]);
+  optimalAllocations.set(4, [4, 1]);
+  optimalAllocations.set(5, [6, 1]);
+  optimalAllocations.set(6, [6, 1]);
+  optimalAllocations.set(7, [6, 1, 2, 1]);
+  optimalAllocations.set(8, [6, 1, 2, 1]);
+  optimalAllocations.set(9, [6, 1, 4, 1]);
+  optimalAllocations.set(10, [6, 1, 4, 1]);
+  optimalAllocations.set(12, [6, 2]);
+  optimalAllocations.set(14, [6, 2, 2, 1]);
+  optimalAllocations.set(16, [6, 2, 4, 1]);
+  optimalAllocations.set(18, [6, 3]);
+  optimalAllocations.set(20, [6, 3, 2, 1]);
 
-  function backtrack(index: number, path: Table[], total: number) {
-    if (path.length > 10) return; // tránh quá nhiều bàn
+  const optimalAllocation = optimalAllocations.get(guest_count);
+  if (!optimalAllocation) return null;
 
-    if (total >= guest_count) {
-      const remaining = total - guest_count;
-      if (path.length < bestTableCount || (path.length === bestTableCount && remaining < bestRemaining)) {
-        bestCombo = [...path];
-        bestRemaining = remaining;
-        bestTableCount = path.length;
+  const result: number[] = [];
+
+  for (let i = 0; i < optimalAllocation.length; i += 2) {
+    const tableType = optimalAllocation[i];
+    const requiredCount = optimalAllocation[i + 1];
+
+    let used = 0;
+
+    if (availableTables.has(tableType)) {
+      const tableInfo = availableTables.get(tableType)!;
+      const canUse = Math.min(tableInfo.available, requiredCount);
+      for (let j = 0; j < canUse; j++) {
+        result.push(tableInfo.id);
       }
+      tableInfo.available -= canUse;
+      used += canUse;
     }
 
-    for (let i = index; i < availableTables.length; i++) {
-      path.push(availableTables[i]);
-      backtrack(i + 1, path, total + availableTables[i].type);
-      path.pop();
-    }
-  }
+    let remaining = requiredCount - used;
 
-  backtrack(0, [], 0);
+    while (remaining > 0) {
+      let fallbackDone = false;
 
-  return bestCombo.length > 0 ? [...new Set(bestCombo.map((t) => t.id))] : null;
-}
-
-// async function allocateTables(restaurant_id: number, guest_count: number, date: string, timeSlot: string, conn: PoolConnection) {
-//   const rows = await conn.query(
-//     `
-//       SELECT
-//         t.id,
-//         CAST(t.table_type AS UNSIGNED) AS table_type,
-//         t.quantity,
-//         COUNT(rt.id) AS reserved_count
-//       FROM tables t
-//       LEFT JOIN reservation_tables rt
-//         ON rt.table_id = t.id
-//         AND rt.status IN ('CONFIRMED', 'HOLDING')
-//       LEFT JOIN reservations r
-//         ON r.id = rt.reservation_id
-//         AND r.date = ?
-//         AND r.time_slot = ?
-//       WHERE t.restaurant_id = ?
-//       GROUP BY t.id
-//       HAVING (t.quantity - reserved_count) > 0
-//     `,
-//     [date, timeSlot, restaurant_id],
-//   );
-
-//   const tables = rows as {
-//     id: number;
-//     table_type: number;
-//     quantity: number;
-//     reserved_count: number;
-//   }[];
-
-//   const available: { tableId: number; type: number; instanceId: number }[] = [];
-//   let instanceIndex = 0;
-
-//   for (const t of tables) {
-//     const availableCount = Number(t.quantity) - Number(t.reserved_count);
-//     for (let i = 0; i < availableCount; i++) {
-//       available.push({
-//         instanceId: instanceIndex++, // dùng để phân biệt mỗi "slot"
-//         tableId: t.id,
-//         type: t.table_type,
-//       });
-//     }
-//   }
-
-//   available.sort((a, b) => b.type - a.type);
-
-//   let bestChoice: { ids: number[]; over: number } = { ids: [], over: Infinity };
-
-//   function dfs(index: number, currentInstanceIds: number[], total: number) {
-//     if (total >= guest_count) {
-//       const over = total - guest_count;
-//       const tableIds = [...new Set(currentInstanceIds.map((i) => available[i].tableId))];
-
-//       if (
-//         total >= guest_count &&
-//         (total < guest_count + bestChoice.over || // ít dư hơn
-//           (total === guest_count + bestChoice.over && tableIds.length < bestChoice.ids.length)) // hoặc dư bằng nhau nhưng ít bàn hơn
-//       ) {
-//         bestChoice = { ids: tableIds, over: total - guest_count };
-//       }
-//       return;
-//     }
-
-//     if (index >= available.length) return;
-
-//     // Chọn instance này
-//     currentInstanceIds.push(index);
-//     dfs(index + 1, currentInstanceIds, total + available[index].type);
-
-//     // Bỏ instance này
-//     currentInstanceIds.pop();
-//     dfs(index + 1, currentInstanceIds, total);
-//   }
-//   dfs(0, [], 0);
-
-//   console.log('🚀 ~ allocateTables ~ bestChoice:', bestChoice);
-//   return bestChoice.ids.length ? [...new Set(bestChoice.ids)] : null;
-// }
-
-async function allocateTables2(restaurant_id: number, guest_count: number, date: string, timeSlot: string, conn: PoolConnection) {
-  // Lấy danh sách bàn có sẵn từ database
-  const rows = await conn.query(
-    `
-      SELECT 
-        t.id, 
-        CAST(t.table_type AS UNSIGNED) AS table_type,
-        t.quantity,
-        COUNT(rt.id) AS reserved_count
-      FROM tables t
-      LEFT JOIN reservation_tables rt 
-        ON rt.table_id = t.id
-        AND rt.status IN ('CONFIRMED', 'HOLDING')
-      LEFT JOIN reservations r 
-        ON r.id = rt.reservation_id
-        AND r.date = ?
-        AND r.time_slot = ?
-      WHERE t.restaurant_id = ?
-      GROUP BY t.id
-      HAVING (t.quantity - reserved_count) > 0
-    `,
-    [date, timeSlot, restaurant_id],
-  );
-
-  const tables = rows as {
-    id: number;
-    table_type: number;
-    quantity: number;
-    reserved_count: number;
-  }[];
-
-  // Tạo danh sách các bàn có sẵn
-  const availableTables: Array<{
-    tableId: number;
-    type: number;
-    count: number;
-  }> = tables.map((t) => ({
-    tableId: t.id,
-    type: t.table_type,
-    count: Number(t.quantity) - Number(t.reserved_count),
-  }));
-
-  // Sắp xếp bàn từ lớn đến nhỏ theo kích thước
-  availableTables.sort((a, b) => b.type - a.type);
-
-  // Phân bổ bàn theo thuật toán tham lam cải tiến
-  const result = allocateTablesByImprovedGreedy(availableTables, guest_count);
-
-  // Ghi log kết quả
-  console.log('🚀 ~ allocateTables ~ result:', result);
-
-  // Đảm bảo trả về danh sách ID bàn duy nhất
-  return result.tableIds.length ? [...new Set(result.tableIds)] : null;
-}
-
-/**
- * Hàm phân bổ bàn theo thuật toán tham lam cải tiến
- */
-function allocateTablesByImprovedGreedy(
-  availableTables: Array<{ tableId: number; type: number; count: number }>,
-  guestCount: number,
-): { tableIds: number[]; totalSeats: number; overCapacity: number } {
-  // Nếu không có bàn nào khả dụng
-  if (availableTables.length === 0) {
-    return { tableIds: [], totalSeats: 0, overCapacity: Infinity };
-  }
-
-  // Tạo danh sách tất cả các tổ hợp bàn có thể
-  let bestAllocation: {
-    tableIds: number[];
-    usedTables: Record<number, number>;
-    totalSeats: number;
-    remainingGuests: number;
-    overCapacity: number;
-  } = {
-    tableIds: [],
-    usedTables: {},
-    totalSeats: 0,
-    remainingGuests: guestCount,
-    overCapacity: Infinity,
-  };
-
-  // Thử phân bổ từ bàn lớn đến bàn nhỏ
-  function tryLargeToSmall() {
-    const tablesClone = availableTables.map((t) => ({ ...t }));
-    const usedTables: Record<number, number> = {};
-    let totalSeats = 0;
-    let remainingGuests = guestCount;
-
-    // Ưu tiên dùng bàn lớn nhất có thể
-    for (let i = 0; i < tablesClone.length; i++) {
-      const table = tablesClone[i];
-
-      while (table.count > 0) {
-        // Nếu bàn này có kích thước vừa đủ hoặc lớn hơn số khách còn lại
-        if (table.type >= remainingGuests) {
-          table.count--;
-          usedTables[table.tableId] = (usedTables[table.tableId] || 0) + 1;
-          totalSeats += table.type;
-          remainingGuests = 0;
-          break; // Đã phân bổ đủ chỗ
+      if (tableType === 2) {
+        if (hasTable4 && availableTables.get(4)!.available > 0) {
+          result.push(availableTables.get(4)!.id);
+          availableTables.get(4)!.available -= 1;
+          fallbackDone = true;
+        } else if (hasTable6 && availableTables.get(6)!.available > 0) {
+          result.push(availableTables.get(6)!.id);
+          availableTables.get(6)!.available -= 1;
+          fallbackDone = true;
         }
-        // Nếu vẫn còn nhiều khách, sử dụng bàn này
-        else if (remainingGuests > table.type) {
-          table.count--;
-          usedTables[table.tableId] = (usedTables[table.tableId] || 0) + 1;
-          totalSeats += table.type;
-          remainingGuests -= table.type;
-        }
-        // Nếu bàn quá lớn cho số khách còn lại, thử bàn tiếp theo
-        else {
-          break;
+      } else if (tableType === 4) {
+        if (hasTable6 && availableTables.get(6)!.available > 0) {
+          result.push(availableTables.get(6)!.id);
+          availableTables.get(6)!.available -= 1;
+          fallbackDone = true;
         }
       }
 
-      if (remainingGuests === 0) break;
-    }
-
-    return {
-      tableIds: Object.keys(usedTables).map(Number),
-      usedTables,
-      totalSeats,
-      remainingGuests,
-      overCapacity: totalSeats - guestCount,
-    };
-  }
-
-  // Thử tất cả các cách phân bổ có thể
-  function tryAllCombinations() {
-    const bestSolutions: Array<{
-      tableIds: number[];
-      usedTables: Record<number, number>;
-      totalSeats: number;
-      remainingGuests: number;
-      overCapacity: number;
-    }> = [];
-
-    // Hàm đệ quy để thử các tổ hợp
-    function backtrack(index: number, currentTables: Record<number, number>, totalSeats: number, remainingGuests: number) {
-      // Nếu đã đủ chỗ cho khách
-      if (remainingGuests <= 0) {
-        bestSolutions.push({
-          tableIds: Object.keys(currentTables).map(Number),
-          usedTables: { ...currentTables },
-          totalSeats,
-          remainingGuests,
-          overCapacity: totalSeats - guestCount,
-        });
-        return;
+      if (fallbackDone) {
+        remaining--;
+      } else {
+        // Không còn fallback "lên" được nữa → chuyển sang fallback cuối
+        break;
       }
-
-      // Nếu đã xem xét hết các loại bàn
-      if (index >= availableTables.length) return;
-
-      const table = availableTables[index];
-      const originalCount = currentTables[table.tableId] || 0;
-
-      // Thử không sử dụng bàn này
-      backtrack(index + 1, currentTables, totalSeats, remainingGuests);
-
-      // Thử sử dụng bàn này với số lượng khác nhau
-      for (let i = 1; i <= table.count; i++) {
-        currentTables[table.tableId] = originalCount + i;
-        const newTotalSeats = totalSeats + table.type * i;
-        const newRemainingGuests = remainingGuests - table.type * i;
-
-        // Chỉ tiếp tục nếu có tiến triển
-        if (newRemainingGuests < remainingGuests) {
-          backtrack(index + 1, currentTables, newTotalSeats, newRemainingGuests);
-
-          // Nếu đã đủ chỗ, không cần thêm bàn cùng loại
-          if (newRemainingGuests <= 0) break;
-        }
-      }
-
-      // Khôi phục trạng thái
-      currentTables[table.tableId] = originalCount;
     }
 
-    // Bắt đầu với bàn đầu tiên
-    backtrack(0, {}, 0, guestCount);
-
-    // Để tránh tràn bộ nhớ, giới hạn số lượng giải pháp xem xét
-    const MAX_SOLUTIONS = 10;
-    if (bestSolutions.length > MAX_SOLUTIONS) {
-      bestSolutions.length = MAX_SOLUTIONS;
+    if (remaining > 0) {
+      // Dừng optimal allocation sớm nếu không thể đáp ứng
+      break;
     }
-
-    return bestSolutions;
   }
 
-  // Thử phương pháp tham lam trước
-  const greedyResult = tryLargeToSmall();
-
-  // Nếu phương pháp tham lam đã giải quyết vấn đề, sử dụng kết quả đó
-  if (greedyResult.remainingGuests === 0) {
-    return {
-      tableIds: greedyResult.tableIds,
-      totalSeats: greedyResult.totalSeats,
-      overCapacity: greedyResult.overCapacity,
-    };
+  // Nếu phân bổ thành công từ optimal => return
+  if (result.length > 0 && guest_count <= result.length * 6) {
+    return result;
   }
 
-  // Nếu phương pháp tham lam không hoàn hảo, thử các tổ hợp khác
-  // Giới hạn số lượng bàn xem xét để tránh tràn bộ nhớ
-  const limitedTables = availableTables.length > 5 ? availableTables.slice(0, 5) : availableTables;
+  // 🔁 Fallback cuối cùng: Ghép nhiều bàn nhỏ lại nếu cần
+  let totalSeatsAvailable = 0;
+  const tempResult: number[] = [];
 
-  const combinations = tryAllCombinations();
+  const tableTypesDesc = [6, 4, 2]; // Ưu tiên bàn lớn
+  for (const type of tableTypesDesc) {
+    const info = availableTables.get(type);
+    if (!info) continue;
 
-  // Tìm giải pháp tốt nhất từ các tổ hợp
-  let bestSolution = greedyResult;
-  for (const solution of combinations) {
-    if (solution.remainingGuests <= 0) {
-      if (
-        solution.overCapacity < bestSolution.overCapacity ||
-        (solution.overCapacity === bestSolution.overCapacity && solution.tableIds.length < bestSolution.tableIds.length)
-      ) {
-        bestSolution = solution;
+    for (let i = 0; i < info.available; i++) {
+      tempResult.push(info.id);
+      totalSeatsAvailable += type;
+      if (totalSeatsAvailable >= guest_count) {
+        return tempResult;
       }
     }
   }
 
-  // Nếu không tìm được giải pháp, thử chọn bổ sung thêm bàn nhỏ nhất cho số khách còn lại
-  if (bestSolution.remainingGuests > 0 && availableTables.length > 0) {
-    const smallestTable = availableTables[availableTables.length - 1];
-    if (smallestTable.count > 0) {
-      bestSolution.usedTables[smallestTable.tableId] = (bestSolution.usedTables[smallestTable.tableId] || 0) + 1;
-      bestSolution.totalSeats += smallestTable.type;
-      bestSolution.remainingGuests -= smallestTable.type;
-      bestSolution.overCapacity = bestSolution.totalSeats - guestCount;
-      bestSolution.tableIds = Object.keys(bestSolution.usedTables).map(Number);
-    }
-  }
-
-  return {
-    tableIds: bestSolution.tableIds,
-    totalSeats: bestSolution.totalSeats,
-    overCapacity: bestSolution.overCapacity,
-  };
+  // Không đủ bàn nhỏ để ghép đủ chỗ
+  return null;
 }
 
 export const reservationHoldService = async (params: reservationType) => {
@@ -406,44 +167,47 @@ export const reservationHoldService = async (params: reservationType) => {
 
   const conn = await pool.getConnection();
   try {
-    // await conn.beginTransaction();
+    await conn.beginTransaction();
 
-    // const timeSlot = determineTimeSlot(arrival_time);
-    // const allocatedTableIds = await allocateTables(restaurant_id, guest_count, date, timeSlot, conn);
+    const timeSlot = determineTimeSlot(arrival_time);
+    const allocatedTableIds = await allocateTables(restaurant_id, guest_count, date, timeSlot, conn);
 
-    // if (!allocatedTableIds) {
-    //   await conn.rollback();
-    //   return {
-    //     status: 400,
-    //     message: 'Không đủ bàn để phục vụ số lượng khách này.',
-    //   };
-    // }
+    if (!allocatedTableIds) {
+      await conn.rollback();
+      return {
+        status: 400,
+        message: 'Không đủ bàn để phục vụ số lượng khách này.',
+      };
+    }
 
-    // const holdExpiration = new Date(Date.now() + 5 * 60 * 1000); // 5m
+    const holdExpiration = new Date(Date.now() + 5 * 60 * 1000); // 5m
 
-    // const reservationResult = await conn.execute(
-    //   `INSERT INTO reservations (restaurant_id, user_id, phone, guest_count, date, arrival_time, time_slot, note)
-    //        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    //   [restaurant_id, user_id, phone, guest_count, date, arrival_time, timeSlot, note || null],
-    // );
-    // console.log('🚀 ~ reservationHoldService ~ reservationResult:', reservationResult);
+    const reservationResult = await conn.execute(
+      `INSERT INTO reservations (restaurant_id, user_id, phone, guest_count, date, arrival_time, time_slot, note)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [restaurant_id, user_id, phone, guest_count, date, arrival_time, timeSlot, note || null],
+    );
+    console.log('🚀 ~ reservationHoldService ~ reservationResult:', reservationResult);
 
-    // const reservationId = typeof reservationResult.insertId === 'bigint' ? Number(reservationResult.insertId) : reservationResult.insertId;
+    const reservationId = typeof reservationResult.insertId === 'bigint' ? Number(reservationResult.insertId) : reservationResult.insertId;
 
-    // const insertTablePromises = allocatedTableIds.map((tableId) =>
-    //   conn.execute(
-    //     `INSERT INTO reservation_tables (reservation_id, table_id, status, hold_expiration)
-    //          VALUES (?, ?, 'HOLDING', ?)`,
-    //     [reservationId, tableId, holdExpiration],
-    //   ),
-    // );
-    // await Promise.all(insertTablePromises);
+    const insertTablePromises = allocatedTableIds.map((tableId) =>
+      conn.execute(
+        `INSERT INTO reservation_tables (reservation_id, table_id, status, hold_expiration)
+             VALUES (?, ?, 'HOLDING', ?)`,
+        [reservationId, tableId, holdExpiration],
+      ),
+    );
+    await Promise.all(insertTablePromises);
 
-    // await conn.commit();
+    await conn.commit();
 
-    // return { hold_id: reservationId, expired_at: holdExpiration.toISOString() };
-    const test = await allocateTables(15, 2, '2025-07-22', 'LUNCH', conn);
-    console.log('🚀 ~ allocateTables ~ allocateTables:', test);
+    return { hold_id: reservationId, expired_at: holdExpiration.toISOString() };
+    // const test1 = await allocateTables(15, 4, '2025-07-22', 'LUNCH', conn);
+    // const test2 = await allocateTables(15, 8, '2025-07-22', 'LUNCH', conn);
+    // const test3 = await allocateTables(15, 9, '2025-07-22', 'LUNCH', conn);
+    // const test4 = await allocateTables(15, 12, '2025-07-22', 'LUNCH', conn);
+    // console.log('✅ Result:', test1, test2, test3, test4);
   } catch (error) {
     await conn.rollback();
     console.error(error);
@@ -459,11 +223,12 @@ export const reservationService = async (reservation_id: number, phone: string, 
     await conn.beginTransaction();
 
     // Check hold có còn hiệu lực không
-    const [rows] = await conn.query(`SELECT * FROM reservation_tables WHERE reservation_id = ? AND status = 'HOLDING' AND hold_expiration > NOW()`, [
+    const rows = await conn.query(`SELECT * FROM reservation_tables WHERE reservation_id = ? AND status = 'HOLDING' AND hold_expiration > NOW()`, [
       reservation_id,
     ]);
+    console.log('🚀 ~ reservationService ~ rows:', rows);
 
-    if (!rows.length) {
+    if (!rows?.length) {
       await conn.rollback();
       return { message: 'Hold đã hết hạn hoặc không hợp lệ.', status: 400 };
     }
@@ -502,11 +267,11 @@ export const checkAvailabilityService = async (restaurant_id: number, date: stri
   }
 };
 
-export const getReservationByIdService = async (reservationId: number) => {
+export const getReservationByIdService = async (reservationId: number, holding = false) => {
   const conn = await pool.getConnection();
   try {
-    const reservationRows = await conn.query(
-      `
+    const query = holding
+      ? `
           SELECT r.id AS reservation_id, r.restaurant_id, r.guest_count, r.phone, r.note,
                  r.date, r.arrival_time, r.time_slot,
                  MIN(rt.hold_expiration) AS expired_at
@@ -514,11 +279,17 @@ export const getReservationByIdService = async (reservationId: number) => {
           JOIN reservation_tables rt ON rt.reservation_id = r.id
           WHERE r.id = ?
             AND rt.status = 'HOLDING'
-            AND rt.hold_expiration > NOW()
           GROUP BY r.id
-        `,
-      [reservationId],
-    );
+        `
+      : `
+          SELECT r.id AS reservation_id, r.restaurant_id, r.guest_count, r.phone, r.note,
+                 r.date, r.arrival_time, r.time_slot, rt.status as table_status, r.status,
+                 MIN(rt.hold_expiration) AS expired_at
+          FROM reservations r
+          JOIN reservation_tables rt ON rt.reservation_id = r.id
+          GROUP BY r.id
+        `;
+    const reservationRows = await conn.query(query, [reservationId]);
     console.log('🚀 ~ getReservationByIdService ~ reservationRows:', reservationRows);
 
     const reservation = (reservationRows as any[])[0];
@@ -529,6 +300,8 @@ export const getReservationByIdService = async (reservationId: number) => {
         message: 'Reservation not found or expired',
       };
     }
+
+    const [restaurant] = await conn.query(`SELECT name, address FROM restaurants WHERE id = ?`, [reservation.restaurant_id]);
 
     const tableRows = await conn.query(
       `
@@ -545,6 +318,7 @@ export const getReservationByIdService = async (reservationId: number) => {
       data: {
         ...reservation,
         tables: tableRows,
+        restaurant,
       },
     };
   } catch (error) {

@@ -77,6 +77,7 @@ export const checkAvailablility = async (req: any, res: Response, next: NextFunc
 export const getReservationById = async (req: any, res: Response, next: NextFunction): Promise<Response | void> => {
   try {
     const reservation_id = parseInt(req.params.reservationId);
+    const { isHolding } = req.query;
 
     if (!reservation_id) {
       return handleResponse(res, 400, 'Vui lòng nhập đầy đủ thông tin', null);
@@ -87,7 +88,7 @@ export const getReservationById = async (req: any, res: Response, next: NextFunc
       return handleResponse(res, 401, 'Vui lòng đăng nhập để đặt bàn', null);
     }
 
-    const result = (await getReservationByIdService(reservation_id)) as any;
+    const result = (await getReservationByIdService(reservation_id, isHolding === 'true')) as any;
     console.log('🚀 ~ getReservationById ~ result:', result);
     if (result?.status !== 200) {
       return handleResponse(res, result.status, result.message, null);

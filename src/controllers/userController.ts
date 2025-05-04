@@ -1,5 +1,13 @@
 import { NextFunction, Response, Request } from 'express';
-import { createUserService, getAllUsersService, getUserByIdService } from '../models/userModel';
+import {
+  createUserService,
+  getAllUsersService,
+  getReservationByUserIdService,
+  getUserByIdService,
+  updateUserInfoService,
+  updateUserPasswordService,
+} from '../models/userModel';
+import { paginate } from '../utils/paginate';
 
 const handleResponse = (res: Response, status: number, message: string, data: any) => {
   return res.status(status).json({
@@ -42,11 +50,81 @@ export const getUserById = async (req: any, res: Response, next: NextFunction): 
       }
       return handleResponse(res, 400, 'User id is required', null);
     }
-    console.log('🚀 ~ getUserById ~ userId:', userId);
     const user = await getUserByIdService(userId);
-    console.log('🚀 ~ getUserById ~ user:', user);
     return handleResponse(res, 200, 'User fetched successfully', user);
   } catch (error) {
     next(error);
+  }
+};
+
+export const updateUserInfo = async (req: any, res: Response, next: NextFunction): Promise<Response | void> => {
+  try {
+    const userId = req.user?.id;
+    const { name, phone } = req.body;
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (!userId) {
+      return handleResponse(res, 401, 'Login required', null);
+    }
+
+    if (!name && !phone) {
+      return res.status(400).json({ message: 'Invalid request' });
+    }
+
+    if (name) {
+      fields.push('name = ?');
+      values.push(name);
+    }
+
+    if (phone) {
+      fields.push('phone = ?');
+      values.push(phone);
+    }
+
+    values.push(userId);
+
+    const updateResponse = updateUserInfoService(fields, values);
+    return handleResponse(res, 200, 'User info updated successfully', updateResponse);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUserPassword = async (req: any, res: Response, next: NextFunction): Promise<Response | void> => {
+  try {
+    const userId = req.user?.id;
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword || !userId) {
+      return res.status(400).json({ message: 'Invalid request' });
+    }
+
+    const response = await updateUserPasswordService(oldPassword, newPassword, userId);
+
+    return handleResponse(res, response.status, response.message, null);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getReservationsByUserId = async (req: any, res: Response, next: NextFunction): Promise<Response | void> => {
+  try {
+    const userId = req.user.id;
+
+    const limit = parseInt(req.query.limit as string) || 10;
+    const page = parseInt(req.query.page as string) || 1;
+
+    if (!userId) {
+      return handleResponse(res, 401, 'Chưa đăng nhập', null);
+    }
+
+    const { limit: pageLimit, offset, page: pageInt } = paginate({ page: +page, limit: +limit });
+
+    const listReservationByUser = await getReservationByUserIdService(userId, pageLimit, offset, pageInt);
+
+    return handleResponse(res, 200, 'Successfully', listReservationByUser);
+  } catch (error) {
+    return res.status(500).json({ message: 'Server error' });
   }
 };
