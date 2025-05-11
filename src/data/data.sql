@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS restaurants (
     coordinate          POINT,
     price_min           INT UNSIGNED NOT NULL,
     price_max           INT UNSIGNED NOT NULL,
-    status              ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
+    status              ENUM('PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED') DEFAULT 'PENDING',
     created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES Users(id) ON DELETE CASCADE,
 );
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     arrival_time   TIME NOT NULL;
     date           DATE NOT NULL,
     time_slot      ENUM('LUNCH', 'DINNER') NOT NULL,
-    status         ENUM('PENDING', 'CONFIRMED', 'CANCELLED') DEFAULT 'PENDING',
+    status         ENUM('PENDING', 'CONFIRMED', 'CANCELLED', 'COMPLETED') DEFAULT 'PENDING',
     note           TEXT,
     created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,

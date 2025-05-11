@@ -1,17 +1,6 @@
 import pool from '../config/db';
 import bcrypt from 'bcryptjs';
 
-// const serializeBigInt = (rows: any[]) => {
-//   return rows.map((row) => {
-//     for (const key in row) {
-//       if (typeof row[key] === 'bigint') {
-//         row[key] = row[key].toString();
-//       }
-//     }
-//     return row;
-//   });
-// };
-
 export const getAllUsersService = async () => {
   try {
     const conn = await pool.getConnection();
@@ -52,10 +41,12 @@ export const getUserByIdService = async (id: string) => {
 };
 
 export const updateUserInfoService = async (fields: string[], values: any[]) => {
+  console.log('🚀 ~ updateUserInfoService ~ values:', values);
   const conn = await pool.getConnection();
   try {
-    const [result] = await conn.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+    const result = await conn.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
 
+    console.log('🚀 ~ updateUserInfoService ~ result:', result.insertId);
     return result;
   } catch (error: any) {
     throw new Error(error);
@@ -94,7 +85,7 @@ export const getReservationByUserIdService = async (userId: any, limit: number, 
   const conn = await pool.getConnection();
 
   try {
-    const [rows] = await conn.query(
+    const rows = await conn.query(
       `
       SELECT 
         r.id AS reservation_id,
@@ -118,18 +109,94 @@ export const getReservationByUserIdService = async (userId: any, limit: number, 
       [userId, limit, offset],
     );
 
-    const [[{ total }]] = await conn.query(`SELECT COUNT(*) as total FROM reservations WHERE user_id = ?`, [userId]);
+    const [{ total }] = await conn.query(`SELECT COUNT(*) as total FROM reservations WHERE user_id = ?`, [userId]);
 
+    console.log('🚀 ~ getReservationByUserIdService ~ total:', total);
     return {
       reservations: rows,
       pagination: {
-        total,
+        total: Number(total),
         limit,
         pageInt,
       },
     };
   } catch (error: any) {
     throw new Error(error);
+  } finally {
+    conn.release();
+  }
+};
+
+export const checkCanReviewService = async (userId: number, restaurantId: number) => {
+  const conn = await pool.getConnection();
+  try {
+    // 1. Kiểm tra đã từng đặt bàn CONFIRMED và ngày <= hôm nay
+    const eligibleRow = await conn.query(
+      `SELECT COUNT(*) AS eligible
+       FROM reservations
+       WHERE user_id = ? AND restaurant_id = ?
+         AND status = 'CONFIRMED'
+         AND date <= CURRENT_DATE()`,
+      [userId, restaurantId],
+    );
+    console.log('🚀 ~ checkCanReviewService ~ eligibleRow:', eligibleRow);
+
+    // 2. Kiểm tra đã review chưa
+    const [reviewedRow] = await conn.query(
+      `SELECT COUNT(*) AS reviewed
+       FROM reviews
+       WHERE user_id = ? AND restaurant_id = ?`,
+      [userId, restaurantId],
+    );
+
+    const isEligible = (eligibleRow as any)[0]?.eligible > 0;
+    console.log('🚀 ~ checkCanReviewService ~ isEligible:', isEligible);
+    const hasReviewed = (reviewedRow as any)[0]?.reviewed > 0;
+
+    return {
+      status: 200,
+      data: {
+        canReview: isEligible && !hasReviewed,
+        isEligible,
+        hasReviewed,
+      },
+    };
+  } catch (error) {
+    console.error('Error in checkCanReviewService:', error);
+    return { status: 500, message: 'Server error' };
+  } finally {
+    conn.release();
+  }
+};
+
+export const createReviewService = async (
+  userId: number,
+  reviewData: {
+    restaurantId: number;
+    rating: '1' | '2' | '3' | '4' | '5';
+    comment?: string;
+    image?: string;
+  },
+) => {
+  const conn = await pool.getConnection();
+  try {
+    // Check if eligible to review
+    const check = await checkCanReviewService(userId, reviewData.restaurantId);
+    if (!check?.data?.canReview) {
+      return { status: 400, message: 'You are not allowed to review this restaurant' };
+    }
+
+    const { restaurantId, rating, comment, image } = reviewData;
+    await conn.query(
+      `INSERT INTO reviews (user_id, restaurant_id, rating, comment, image)
+       VALUES (?, ?, ?, ?, ?)`,
+      [userId, restaurantId, rating, comment || null, image || null],
+    );
+
+    return { status: 201, message: 'Review created successfully' };
+  } catch (error) {
+    console.error('Error in createReviewService:', error);
+    return { status: 500, message: 'Server error' };
   } finally {
     conn.release();
   }

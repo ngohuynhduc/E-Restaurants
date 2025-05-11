@@ -1,5 +1,7 @@
 import { NextFunction, Response, Request } from 'express';
 import {
+  checkCanReviewService,
+  createReviewService,
   createUserService,
   getAllUsersService,
   getReservationByUserIdService,
@@ -60,7 +62,8 @@ export const getUserById = async (req: any, res: Response, next: NextFunction): 
 export const updateUserInfo = async (req: any, res: Response, next: NextFunction): Promise<Response | void> => {
   try {
     const userId = req.user?.id;
-    const { name, phone } = req.body;
+    const { full_name, phone } = req.body;
+    console.log('🚀 ~ updateUserInfo ~ full_name, phone:', full_name, phone);
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -68,13 +71,13 @@ export const updateUserInfo = async (req: any, res: Response, next: NextFunction
       return handleResponse(res, 401, 'Login required', null);
     }
 
-    if (!name && !phone) {
+    if (!full_name && !phone) {
       return res.status(400).json({ message: 'Invalid request' });
     }
 
-    if (name) {
-      fields.push('name = ?');
-      values.push(name);
+    if (full_name) {
+      fields.push('full_name = ?');
+      values.push(full_name);
     }
 
     if (phone) {
@@ -84,8 +87,9 @@ export const updateUserInfo = async (req: any, res: Response, next: NextFunction
 
     values.push(userId);
 
-    const updateResponse = updateUserInfoService(fields, values);
-    return handleResponse(res, 200, 'User info updated successfully', updateResponse);
+    const updateResponse = await updateUserInfoService(fields, values);
+    console.log('🚀 ~ updateUserInfo ~ updateResponse:', updateResponse);
+    return handleResponse(res, 200, 'User info updated successfully', null);
   } catch (error) {
     next(error);
   }
@@ -125,6 +129,54 @@ export const getReservationsByUserId = async (req: any, res: Response, next: Nex
 
     return handleResponse(res, 200, 'Successfully', listReservationByUser);
   } catch (error) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const checkCanReviewController = async (req: any, res: Response) => {
+  try {
+    const userId = req?.user?.id;
+    const restaurantId = Number(req.query.restaurantId);
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Login required' });
+    }
+
+    if (!restaurantId) {
+      return res.status(400).json({ message: 'restaurantId is required' });
+    }
+
+    const result = await checkCanReviewService(userId, restaurantId);
+    return res.status(result.status).json(result);
+  } catch (error) {
+    console.error('Error in checkCanReviewController:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const createReviewController = async (req: any, res: Response) => {
+  try {
+    const userId = req?.user?.id;
+    const { restaurantId, rating, comment, image } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Login required' });
+    }
+
+    if (!restaurantId || !rating) {
+      return res.status(400).json({ message: 'restaurantId and rating are required' });
+    }
+
+    const result = await createReviewService(userId, {
+      restaurantId,
+      rating,
+      comment,
+      image,
+    });
+
+    return res.status(result.status).json(result);
+  } catch (error) {
+    console.error('Error in createReviewController:', error);
     return res.status(500).json({ message: 'Server error' });
   }
 };

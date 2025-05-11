@@ -37,17 +37,29 @@ export const getCategoriesService = async () => {
 };
 
 export const getListRestaurantService = async (offset: number, limit: number, filters?: FilterQueryOptions) => {
+  console.log('🚀 ~ getListRestaurantService ~ limit:', limit);
   try {
     const conn = await pool.getConnection();
 
-    const { baseQuery, params } = buildRestaurantQuery(filters);
-    const query = `
-    SELECT r.id, r.name, r.address, r.description,
+    const { baseQuery, params, hasLocation } = buildRestaurantQuery(filters);
+
+    const selectFields = `
+      r.id, r.name, r.address, r.description,
       JSON_UNQUOTE(JSON_EXTRACT(r.restaurant_image, '$[0]')) as image,
       r.price_min, r.price_max
+    `;
+
+    const distanceField = hasLocation ? `, ST_Distance_Sphere(r.coordinate, POINT(?, ?)) AS distance` : '';
+
+    if (hasLocation) {
+      params.push(filters!.lng, filters!.lat); // Note: lng trước, lat sau
+    }
+
+    const query = `
+      SELECT ${selectFields} ${distanceField}
       ${baseQuery}
       GROUP BY r.id
-      ORDER BY r.created_at DESC
+      ${hasLocation ? 'ORDER BY distance ASC' : 'ORDER BY r.created_at DESC'}
       LIMIT ? OFFSET ?
     `;
 
@@ -55,6 +67,7 @@ export const getListRestaurantService = async (offset: number, limit: number, fi
 
     const countSql = `SELECT COUNT(DISTINCT r.id) as count ${baseQuery}`;
     const [{ count }] = await conn.query(countSql, params);
+
     conn.release();
     return {
       restaurants,
@@ -73,6 +86,7 @@ const buildRestaurantQuery = (filters: FilterQueryOptions = {}) => {
     WHERE r.status = 'APPROVED'
   `;
   const params: any[] = [];
+  let hasLocation = false;
 
   if (filters.categoryId) {
     baseQuery += ` AND rc.category_id = ?`;
@@ -99,21 +113,29 @@ const buildRestaurantQuery = (filters: FilterQueryOptions = {}) => {
     params.push(filters.dayOfWeek);
   }
 
-  return { baseQuery, params };
+  if (filters.lat != null && filters.lng != null) {
+    hasLocation = true;
+  }
+
+  return { baseQuery, params, hasLocation };
 };
 
-export const getRestaurantByIdService = async (restaurantId: string, res: Response) => {
+export const getRestaurantByIdService = async (restaurantId: string, res: Response, isAdmin: boolean = false) => {
   try {
     const conn = await pool.getConnection();
-    const [restaurantRows] = await pool.execute(
-      `SELECT r.*, u.full_name AS owner_name, ST_X(r.coordinate) AS lat, ST_Y(r.coordinate) AS lng
+
+    let query = `SELECT r.*, u.full_name AS owner_name, ST_X(r.coordinate) AS lat, ST_Y(r.coordinate) AS lng
        FROM restaurants r
        JOIN users u ON r.owner_id = u.id
-       WHERE r.id = ? AND r.status = 'APPROVED'`,
-      [restaurantId],
-    );
+       WHERE r.id = ?`;
 
-    if (restaurantRows.length === 0) {
+    if (!isAdmin) {
+      query += ` AND r.status = 'APPROVED'`;
+    }
+
+    const [restaurantRows] = await pool.execute(query, [restaurantId]);
+
+    if (restaurantRows?.length === 0) {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
 
@@ -128,7 +150,6 @@ export const getRestaurantByIdService = async (restaurantId: string, res: Respon
     const openTimes = await pool.execute(`SELECT * FROM restaurant_open_times WHERE restaurant_id = ?`, [restaurantId]);
 
     const tables = await pool.execute(`SELECT table_type, quantity FROM tables WHERE restaurant_id = ?`, [restaurantId]);
-    console.log('🚀 ~ getRestaurantByIdService ~ categories:', tables);
 
     conn.release();
     return {
@@ -136,10 +157,35 @@ export const getRestaurantByIdService = async (restaurantId: string, res: Respon
       categories,
       openTimes,
       tables,
-      lat: restaurantRows.lat,
-      lng: restaurantRows.lng,
+      lat: restaurantRows?.lat,
+      lng: restaurantRows?.lng,
     };
   } catch (err: any) {
     throw new Error(err);
+  }
+};
+
+export const getReviewsByRestaurantService = async (restaurantId: number) => {
+  const conn = await pool.getConnection();
+  try {
+    const reviews = await conn.query(
+      `SELECT r.id, r.rating, r.comment, r.image, r.created_at,
+              u.full_name AS user_name
+       FROM reviews r
+       JOIN users u ON u.id = r.user_id
+       WHERE r.restaurant_id = ?
+       ORDER BY r.created_at DESC`,
+      [restaurantId],
+    );
+
+    return {
+      status: 200,
+      data: reviews,
+    };
+  } catch (error) {
+    console.error('Error in getReviewsByRestaurantService:', error);
+    return { status: 500, message: 'Server error' };
+  } finally {
+    conn.release();
   }
 };

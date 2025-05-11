@@ -49,7 +49,6 @@ export const authLogin = async (req: any, res: Response, next: NextFunction): Pr
     }
 
     const validPasswrod = await bcrypt.compare(password, user.password);
-    console.log('🚀 ~ authLogin ~ validPasswrod:', validPasswrod);
     if (!validPasswrod) {
       return handleResponse(res, 401, 'Sai tài khoản hoặc mật khẩu', null);
     }

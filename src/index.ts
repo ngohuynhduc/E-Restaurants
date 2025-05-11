@@ -4,6 +4,7 @@ import cors from 'cors';
 import pool from './config/db';
 import userRoutes from './routes/userRoutes';
 import authRoutes from './routes/authRoutes';
+import adminRoutes from './routes/adminRoutes';
 import restaurantRoutes from './routes/restaurantRoutes';
 import reservationRoutes from './routes/reservationsRoutes';
 import errorHandling from './middlewares/errorHandler';
@@ -25,6 +26,7 @@ app.use('/api', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/restaurant', restaurantRoutes);
 app.use('/api/reservations', reservationRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Error handling
 

@@ -1,6 +1,12 @@
 import { NextFunction, Response, Request } from 'express';
 import dotenv from 'dotenv';
-import { getCategoriesService, getListRestaurantService, getNewestRestaurantService, getRestaurantByIdService } from '../models/restaurantModel';
+import {
+  getCategoriesService,
+  getListRestaurantService,
+  getNewestRestaurantService,
+  getRestaurantByIdService,
+  getReviewsByRestaurantService,
+} from '../models/restaurantModel';
 import { paginate } from '../utils/paginate';
 import { FilterQueryOptions } from '../shares/type';
 
@@ -78,13 +84,27 @@ export const getListRestaurant = async (req: Request, res: Response, next: NextF
 export const getRestaurantById = async (req: Request, res: Response, next: NextFunction): Promise<Response | void> => {
   try {
     const restaurantId = req.params.id;
-    const restaurant = await getRestaurantByIdService(restaurantId, res);
-    console.log('🚀 ~ getRestaurantById ~ restaurant:', restaurant);
+    const { isAdmin } = req.query;
+    console.log('🚀 ~ getRestaurantById ~ isAdmin:', isAdmin);
+    const restaurant = await getRestaurantByIdService(restaurantId, res, isAdmin === 'true');
     if (!restaurant) {
       return handleResponse(res, 404, 'Không tìm thấy nhà hàng!', null);
     }
     return handleResponse(res, 200, 'Successfully', restaurant);
   } catch (error) {
     next(error);
+  }
+};
+
+export const getReviewsByRestaurantController = async (req: Request, res: Response) => {
+  try {
+    const restaurantId = Number(req.params.restaurantId);
+    if (!restaurantId) return res.status(400).json({ message: 'restaurantId is required' });
+
+    const result = await getReviewsByRestaurantService(restaurantId);
+    return res.status(result.status).json(result);
+  } catch (error) {
+    console.error('Error in getReviewsByRestaurantController:', error);
+    return res.status(500).json({ message: 'Server error' });
   }
 };

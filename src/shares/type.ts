@@ -62,6 +62,8 @@ export type FilterQueryOptions = {
   priceMin?: number;
   priceMax?: number;
   dayOfWeek?: string;
+  lat?: string;
+  lng?: string;
 };
 
 export interface reservationType extends reservationRequest {
