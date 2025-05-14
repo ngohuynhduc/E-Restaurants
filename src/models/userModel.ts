@@ -130,7 +130,6 @@ export const getReservationByUserIdService = async (userId: any, limit: number, 
 export const checkCanReviewService = async (userId: number, restaurantId: number) => {
   const conn = await pool.getConnection();
   try {
-    // 1. Kiểm tra đã từng đặt bàn CONFIRMED và ngày <= hôm nay
     const eligibleRow = await conn.query(
       `SELECT COUNT(*) AS eligible
         FROM reservations
@@ -142,7 +141,6 @@ export const checkCanReviewService = async (userId: number, restaurantId: number
       [userId, restaurantId],
     );
 
-    // 2. Kiểm tra đã review chưa
     const [reviewedRow] = await conn.query(
       `SELECT COUNT(*) AS reviewed
        FROM reviews
@@ -181,7 +179,6 @@ export const createReviewService = async (
 ) => {
   const conn = await pool.getConnection();
   try {
-    // Check if eligible to review
     const check = await checkCanReviewService(userId, reviewData.restaurantId);
     if (!check?.data?.canReview) {
       return { status: 400, message: 'You are not allowed to review this restaurant' };

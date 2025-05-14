@@ -2,7 +2,6 @@ import { reservationType } from '../shares/type';
 import pool from '../config/db';
 import { PoolConnection } from 'mariadb';
 
-// Helper để xác định time_slot
 function determineTimeSlot(arrival_time: string) {
   const hour = Number(arrival_time.split(':')[0]);
   return hour < 15 ? 'LUNCH' : 'DINNER';
@@ -14,7 +13,7 @@ async function allocateTables(restaurant_id: number, guest_count: number, date: 
   if (guest_count <= 0 || guest_count > 20) return null;
 
   if (guest_count >= 10 && guest_count % 2 !== 0) {
-    guest_count += 1; // Làm chẵn để khớp phương án
+    guest_count += 1;
   }
 
   const rows = await conn.query(
@@ -124,27 +123,23 @@ async function allocateTables(restaurant_id: number, guest_count: number, date: 
       if (fallbackDone) {
         remaining--;
       } else {
-        // Không còn fallback "lên" được nữa → chuyển sang fallback cuối
         break;
       }
     }
 
     if (remaining > 0) {
-      // Dừng optimal allocation sớm nếu không thể đáp ứng
       break;
     }
   }
 
-  // Nếu phân bổ thành công từ optimal => return
   if (result.length > 0 && guest_count <= result.length * 6) {
     return result;
   }
 
-  // 🔁 Fallback cuối cùng: Ghép nhiều bàn nhỏ lại nếu cần
   let totalSeatsAvailable = 0;
   const tempResult: number[] = [];
 
-  const tableTypesDesc = [6, 4, 2]; // Ưu tiên bàn lớn
+  const tableTypesDesc = [6, 4, 2];
   for (const type of tableTypesDesc) {
     const info = availableTables.get(type);
     if (!info) continue;
@@ -158,7 +153,6 @@ async function allocateTables(restaurant_id: number, guest_count: number, date: 
     }
   }
 
-  // Không đủ bàn nhỏ để ghép đủ chỗ
   return null;
 }
 
@@ -222,7 +216,6 @@ export const reservationService = async (reservation_id: number, phone: string, 
   try {
     await conn.beginTransaction();
 
-    // Check hold có còn hiệu lực không
     const rows = await conn.query(`SELECT * FROM reservation_tables WHERE reservation_id = ? AND status = 'HOLDING' AND hold_expiration > NOW()`, [
       reservation_id,
     ]);
