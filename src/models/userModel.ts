@@ -133,13 +133,14 @@ export const checkCanReviewService = async (userId: number, restaurantId: number
     // 1. Kiểm tra đã từng đặt bàn CONFIRMED và ngày <= hôm nay
     const eligibleRow = await conn.query(
       `SELECT COUNT(*) AS eligible
-       FROM reservations
-       WHERE user_id = ? AND restaurant_id = ?
-         AND status = 'CONFIRMED'
-         AND date <= CURRENT_DATE()`,
+        FROM reservations
+        WHERE user_id = ? AND restaurant_id = ?
+          AND (
+            (status = 'CONFIRMED' AND date <= CURRENT_DATE())
+            OR status = 'COMPLETED'
+          )`,
       [userId, restaurantId],
     );
-    console.log('🚀 ~ checkCanReviewService ~ eligibleRow:', eligibleRow);
 
     // 2. Kiểm tra đã review chưa
     const [reviewedRow] = await conn.query(
@@ -151,7 +152,7 @@ export const checkCanReviewService = async (userId: number, restaurantId: number
 
     const isEligible = (eligibleRow as any)[0]?.eligible > 0;
     console.log('🚀 ~ checkCanReviewService ~ isEligible:', isEligible);
-    const hasReviewed = (reviewedRow as any)[0]?.reviewed > 0;
+    const hasReviewed = (reviewedRow as any)?.reviewed > 0;
 
     return {
       status: 200,

@@ -62,6 +62,9 @@ export const getListRestaurant = async (req: Request, res: Response, next: NextF
       priceMax: Number(req.query.priceMax) || undefined,
       keyword: req.query.keyword || undefined,
       dayOfWeek: req.query.dayOfWeek || undefined,
+      lat: Number(req.query.lat) || undefined,
+      lng: Number(req.query.lng) || undefined,
+      sort: req.query.sort || undefined,
     } as FilterQueryOptions;
     console.log('🚀 ~ getListRestaurant ~ filterOptions:', filterOptions);
 

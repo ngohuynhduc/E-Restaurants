@@ -197,7 +197,7 @@ export const getReservationsByRestaurantService = async (params: FilterParams) =
 };
 
 export const getRestaurantsByOwnerService = async (ownerId: number) => {
-  const rows = await pool.query('SELECT id, name FROM restaurants WHERE owner_id = ?', [ownerId]);
+  const rows = await pool.query('SELECT id, name, address, status, description, hotline FROM restaurants WHERE owner_id = ?', [ownerId]);
   return rows;
 };
 

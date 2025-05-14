@@ -37,31 +37,31 @@ export const getCategoriesService = async () => {
 };
 
 export const getListRestaurantService = async (offset: number, limit: number, filters?: FilterQueryOptions) => {
-  console.log('🚀 ~ getListRestaurantService ~ limit:', limit);
   try {
     const conn = await pool.getConnection();
 
     const { baseQuery, params, hasLocation } = buildRestaurantQuery(filters);
 
     const selectFields = `
-      r.id, r.name, r.address, r.description,
-      JSON_UNQUOTE(JSON_EXTRACT(r.restaurant_image, '$[0]')) as image,
-      r.price_min, r.price_max
-    `;
+    r.id, r.name, r.address, r.description,
+    JSON_UNQUOTE(JSON_EXTRACT(r.restaurant_image, '$[0]')) as image,
+    r.price_min, r.price_max,
+    AVG(rev.rating) AS avg_rating
+  `;
 
     const distanceField = hasLocation ? `, ST_Distance_Sphere(r.coordinate, POINT(?, ?)) AS distance` : '';
 
     if (hasLocation) {
-      params.push(filters!.lng, filters!.lat); // Note: lng trước, lat sau
+      params.push(filters?.lng, filters?.lat);
     }
 
     const query = `
-      SELECT ${selectFields} ${distanceField}
-      ${baseQuery}
-      GROUP BY r.id
-      ${hasLocation ? 'ORDER BY distance ASC' : 'ORDER BY r.created_at DESC'}
-      LIMIT ? OFFSET ?
-    `;
+    SELECT ${selectFields} ${distanceField}
+    ${baseQuery}
+    GROUP BY r.id
+    ${filters?.sort === 'rating' ? 'ORDER BY avg_rating DESC' : hasLocation ? 'ORDER BY distance ASC' : 'ORDER BY r.created_at DESC'}
+    LIMIT ? OFFSET ?
+  `;
 
     const restaurants = await conn.query(query, [...params, limit, offset]);
 
@@ -83,6 +83,7 @@ const buildRestaurantQuery = (filters: FilterQueryOptions = {}) => {
     FROM restaurants r
     LEFT JOIN restaurant_categories rc ON rc.restaurant_id = r.id
     LEFT JOIN restaurant_open_times rot ON rot.restaurant_id = r.id
+    LEFT JOIN reviews rev ON rev.restaurant_id = r.id
     WHERE r.status = 'APPROVED'
   `;
   const params: any[] = [];

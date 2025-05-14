@@ -64,6 +64,7 @@ export type FilterQueryOptions = {
   dayOfWeek?: string;
   lat?: string;
   lng?: string;
+  sort?: string;
 };
 
 export interface reservationType extends reservationRequest {
