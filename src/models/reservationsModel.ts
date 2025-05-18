@@ -322,31 +322,24 @@ export const getReservationByIdService = async (reservationId: number, holding =
   }
 };
 
-// export async function releaseExpiredHolds(conn: PoolConnection) {
-//     const [expiredHolds] = await conn.query(
-//       `SELECT DISTINCT reservation_id FROM reservation_tables WHERE status = 'HOLDING' AND hold_expiration < NOW()`
-//     );
+export async function releaseExpiredHolds(conn: PoolConnection) {
+  const expiredHolds = await conn.query(`SELECT DISTINCT reservation_id FROM reservation_tables WHERE status = 'HOLDING' AND hold_expiration < NOW()`);
 
-//     const reservationIds = (expiredHolds as any[]).map(r => r.reservation_id);
+  console.log('🚀 ~ releaseExpiredHolds ~ expiredHolds:', expiredHolds);
+  const reservationIds = (expiredHolds as any[]).map((r) => r.reservation_id);
 
-//     if (reservationIds.length > 0) {
-//       await conn.query(
-//         `DELETE FROM reservation_tables WHERE reservation_id IN (?) AND status = 'HOLDING'`,
-//         [reservationIds]
-//       );
+  if (reservationIds.length > 0) {
+    await conn.query(`DELETE FROM reservation_tables WHERE reservation_id IN (?) AND status = 'HOLDING'`, [reservationIds]);
 
-//       // Set reservation to CANCELLED nếu không còn bàn nào giữ
-//       for (const resId of reservationIds) {
-//         const [remaining] = await conn.query(
-//           `SELECT COUNT(*) AS cnt FROM reservation_tables WHERE reservation_id = ?`,
-//           [resId]
-//         );
+    for (const resId of reservationIds) {
+      const remaining = await conn.query(`SELECT COUNT(*) AS cnt FROM reservation_tables WHERE reservation_id = ?`, [resId]);
 
-//         if ((remaining as any)[0].cnt === 0) {
-//           await conn.query(`UPDATE reservations SET status = 'CANCELLED' WHERE id = ?`, [resId]);
-//         }
-//       }
-//     }
+      console.log('🚀 ~ releaseExpiredHolds ~ remaining:', (remaining as any)[0].cnt, remaining);
+      if (Number((remaining as any)[0].cnt) === 0) {
+        await conn.query(`UPDATE reservations SET status = 'CANCELLED' WHERE id = ?`, [resId]);
+      }
+    }
+  }
 
-//     return { released: reservationIds.length };
-//   }
+  return { released: reservationIds.length };
+}

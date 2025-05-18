@@ -9,6 +9,7 @@ import restaurantRoutes from './routes/restaurantRoutes';
 import reservationRoutes from './routes/reservationsRoutes';
 import errorHandling from './middlewares/errorHandler';
 import { createDataTable } from './data/createDataTable';
+import './cron/releaseHolds';
 
 dotenv.config();
 
