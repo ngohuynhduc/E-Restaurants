@@ -46,7 +46,22 @@ export const getListRestaurantService = async (offset: number, limit: number, fi
     r.id, r.name, r.address, r.description,
     JSON_UNQUOTE(JSON_EXTRACT(r.restaurant_image, '$[0]')) as image,
     r.price_min, r.price_max,
-    AVG(rev.rating) AS avg_rating
+    AVG(rev.rating) AS avg_rating,
+    (
+    SELECT JSON_ARRAYAGG(
+      JSON_OBJECT(
+        'id', p.id,
+        'title', p.title,
+        'description', p.description,
+        'discount', p.discount,
+        'start_date', p.start_date,
+        'end_date', p.end_date
+      )
+    )
+    FROM promotions p
+    WHERE p.restaurant_id = r.id
+      AND CURDATE() BETWEEN p.start_date AND p.end_date
+  ) AS promotions
   `;
 
     const distanceField = hasLocation ? `, ST_Distance_Sphere(r.coordinate, POINT(?, ?)) AS distance` : '';
@@ -68,6 +83,13 @@ export const getListRestaurantService = async (offset: number, limit: number, fi
     const countSql = `SELECT COUNT(DISTINCT r.id) as count ${baseQuery}`;
     const [{ count }] = await conn.query(countSql, params);
 
+    // restaurants.forEach((r: any) => {
+    //   try {
+    //     r.promotions = JSON.parse(r.promotions)?.filter(Boolean) || [];
+    //   } catch {
+    //     r.promotions = [];
+    //   }
+    // });
     conn.release();
     return {
       restaurants,
@@ -125,9 +147,25 @@ export const getRestaurantByIdService = async (restaurantId: string, res: Respon
   try {
     const conn = await pool.getConnection();
 
-    let query = `SELECT r.*, u.full_name AS owner_name, ST_X(r.coordinate) AS lat, ST_Y(r.coordinate) AS lng
+    let query = `SELECT r.*, u.full_name AS owner_name, ST_X(r.coordinate) AS lat, ST_Y(r.coordinate) AS lng, AVG(rev.rating) AS avg_rating,
+          (
+          SELECT JSON_ARRAYAGG(
+            JSON_OBJECT(
+              'id', p.id,
+              'title', p.title,
+              'description', p.description,
+              'discount', p.discount,
+              'start_date', p.start_date,
+              'end_date', p.end_date
+            )
+          )
+          FROM promotions p
+          WHERE p.restaurant_id = r.id
+            AND CURDATE() BETWEEN p.start_date AND p.end_date
+        ) AS promotions
        FROM restaurants r
        JOIN users u ON r.owner_id = u.id
+       LEFT JOIN reviews rev ON rev.restaurant_id = r.id
        WHERE r.id = ?`;
 
     if (!isAdmin) {
@@ -171,7 +209,7 @@ export const getReviewsByRestaurantService = async (restaurantId: number) => {
   try {
     const reviews = await conn.query(
       `SELECT r.id, r.rating, r.comment, r.image, r.created_at,
-              u.full_name AS user_name
+              u.full_name AS user_name, u.id AS user_id
        FROM reviews r
        JOIN users u ON u.id = r.user_id
        WHERE r.restaurant_id = ?
@@ -185,6 +223,30 @@ export const getReviewsByRestaurantService = async (restaurantId: number) => {
     };
   } catch (error) {
     console.error('Error in getReviewsByRestaurantService:', error);
+    return { status: 500, message: 'Server error' };
+  } finally {
+    conn.release();
+  }
+};
+
+export const createPromotionService = async (promotionData: any) => {
+  const conn = await pool.getConnection();
+  try {
+    const { restaurant_id, title, description, discount, start_date, end_date } = promotionData;
+
+    const result = await conn.execute(
+      `INSERT INTO promotions (restaurant_id, title, description, discount, start_date, end_date)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [restaurant_id, title, description, discount, start_date, end_date],
+    );
+
+    return {
+      status: 201,
+      message: 'Tạo khuyến mãi thành công',
+      data: { id: Number(result.insertId), ...promotionData },
+    };
+  } catch (error) {
+    console.error('Error in createPromotionService:', error);
     return { status: 500, message: 'Server error' };
   } finally {
     conn.release();

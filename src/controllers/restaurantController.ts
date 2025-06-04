@@ -1,6 +1,7 @@
 import { NextFunction, Response, Request } from 'express';
 import dotenv from 'dotenv';
 import {
+  createPromotionService,
   getCategoriesService,
   getListRestaurantService,
   getNewestRestaurantService,
@@ -108,6 +109,28 @@ export const getReviewsByRestaurantController = async (req: Request, res: Respon
     return res.status(result.status).json(result);
   } catch (error) {
     console.error('Error in getReviewsByRestaurantController:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const createPromotion = async (req: any, res: Response) => {
+  try {
+    const { restaurant_id, title, description, discount, start_date, end_date } = req.body;
+    if (!restaurant_id || !title || !description || !discount || !start_date || !end_date) {
+      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin.' });
+    }
+
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Vui lòng đăng nhập để tạo khuyến mãi.' });
+    }
+    const result = await createPromotionService(req.body);
+    if (result.status !== 201) {
+      return res.status(result.status).json({ message: result.message });
+    }
+    return res.status(201).json({ message: result.message, result: result.data });
+  } catch (error) {
+    console.error('Error in createPromotion:', error);
     return res.status(500).json({ message: 'Server error' });
   }
 };

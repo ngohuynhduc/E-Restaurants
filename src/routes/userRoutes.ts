@@ -3,9 +3,11 @@ import {
   checkCanReviewController,
   createReviewController,
   createUser,
+  deleteReviewById,
   getAllUser,
   getReservationsByUserId,
   getUserById,
+  updateReviewById,
   updateUserInfo,
   updateUserPassword,
 } from '../controllers/userController';
@@ -21,5 +23,7 @@ router.put('/user/update-password', optionalAuthentication, updateUserPassword a
 router.get('/user/reservations', optionalAuthentication, getReservationsByUserId as any);
 router.get('/can-review', optionalAuthentication, checkCanReviewController as any);
 router.post('/review', optionalAuthentication, createReviewController as any);
+router.put('/review/:id', optionalAuthentication, updateReviewById as any);
+router.delete('/review/:id', optionalAuthentication, deleteReviewById as any);
 
 export default router;

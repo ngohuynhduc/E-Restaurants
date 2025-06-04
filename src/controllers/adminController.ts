@@ -2,7 +2,9 @@ import { NextFunction, Request, Response } from 'express';
 import {
   createCategoryService,
   deleteCategoryService,
+  deletePromotionByIdService,
   getListRestaurantAdminService,
+  getPromotionsByRestaurantIdService,
   getReservationsByRestaurantService,
   getRestaurantsByOwnerService,
   updateCategoryService,
@@ -208,4 +210,24 @@ export const updateReservationStatus = async (req: any, res: Response) => {
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi cập nhật trạng thái.' });
   }
+};
+
+export const getPromotionsByRestaurantId = async (req: Request, res: Response) => {
+  const restaurantId = Number(req.params.restaurantId);
+  if (isNaN(restaurantId)) {
+    return res.status(400).json({ message: 'Invalid restaurant ID' });
+  }
+
+  const result = await getPromotionsByRestaurantIdService(restaurantId);
+  return res.status(result.status).json(result.data ?? { message: result.message });
+};
+
+export const deletePromotionById = async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    return res.status(400).json({ message: 'Invalid promotion ID' });
+  }
+
+  const result = await deletePromotionByIdService(id);
+  return res.status(result.status).json({ message: result.message });
 };

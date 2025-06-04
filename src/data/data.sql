@@ -59,8 +59,11 @@ CREATE TABLE IF NOT EXISTS tables (
 
 CREATE TABLE IF NOT EXISTS reservations (
     id             INT PRIMARY KEY AUTO_INCREMENT,
-    user_id        INT NOT NULL,
-    phone          VARCHAR(20) NOT NULL,
+    user_id        INT,
+    phone          VARCHAR(20),
+    email          VARCHAR(255),
+    full_name      VARCHAR(255),
+    promotion_id   INT DEFAULT NULL,
     restaurant_id  INT NOT NULL,
     guest_count    INT NOT NULL,
     arrival_time   TIME NOT NULL;
@@ -71,6 +74,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
     FOREIGN KEY (restaurant_id) REFERENCES Restaurants(id) ON DELETE CASCADE
+    FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS reservation_tables (

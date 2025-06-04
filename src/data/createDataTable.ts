@@ -63,7 +63,11 @@ export const createDataTable = async () => {
 
     `CREATE TABLE IF NOT EXISTS reservations (
         id             INT PRIMARY KEY AUTO_INCREMENT,
-        user_id        INT NOT NULL,
+        user_id        INT,
+        phone          VARCHAR(20),
+        email          VARCHAR(255),
+        full_name      VARCHAR(255),
+        promotion_id   INT DEFAULT NULL,
         phone          VARCHAR(20) NOT NULL,
         restaurant_id  INT NOT NULL,
         guest_count    INT NOT NULL,
@@ -74,7 +78,8 @@ export const createDataTable = async () => {
         note           TEXT,
         created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
+        FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE,
+        FOREIGN KEY (promotion_id) REFERENCES promotions(id) ON DELETE SET NULL
     );`,
 
     `CREATE TABLE IF NOT EXISTS reservation_tables (

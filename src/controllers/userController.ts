@@ -3,9 +3,11 @@ import {
   checkCanReviewService,
   createReviewService,
   createUserService,
+  deleteReviewByIdService,
   getAllUsersService,
   getReservationByUserIdService,
   getUserByIdService,
+  updateReviewByIdService,
   updateUserInfoService,
   updateUserPasswordService,
 } from '../models/userModel';
@@ -179,4 +181,27 @@ export const createReviewController = async (req: any, res: Response) => {
     console.error('Error in createReviewController:', error);
     return res.status(500).json({ message: 'Server error' });
   }
+};
+
+export const updateReviewById = async (req: any, res: Response) => {
+  const id = Number(req.params.id);
+  const userId = req.user?.id;
+
+  const { rating, comment, image } = req.body;
+
+  if (!id || !userId) return res.status(400).json({ message: 'Missing review ID or user ID' });
+
+  const result = await updateReviewByIdService(id, userId, { rating, comment, image });
+  console.log('🚀 ~ updateReviewById ~ result:', result);
+  return res.status(result.status).json({ message: result.message, status: result.status });
+};
+
+export const deleteReviewById = async (req: any, res: Response) => {
+  const id = Number(req.params.id);
+  const userId = req.user?.id;
+
+  if (!id || !userId) return res.status(400).json({ message: 'Missing review ID or user ID' });
+
+  const result = await deleteReviewByIdService(id, userId);
+  return res.status(result.status).json({ message: result.message, status: result.status });
 };

@@ -199,3 +199,61 @@ export const createReviewService = async (
     conn.release();
   }
 };
+
+export const updateReviewByIdService = async (id: number, userId: number, updateData: { rating?: string; comment?: string; image?: string }) => {
+  const conn = await pool.getConnection();
+  try {
+    // Kiểm tra review có tồn tại và thuộc về user không
+    const [rows] = await conn.query('SELECT * FROM reviews WHERE id = ? AND user_id = ?', [id, userId]);
+    if ((rows as any).length === 0) {
+      return { status: 404, message: 'Review not found or not authorized' };
+    }
+
+    const fields = [];
+    const values = [];
+
+    if (updateData.rating) {
+      fields.push('rating = ?');
+      values.push(updateData.rating);
+    }
+    if (updateData.comment !== undefined) {
+      fields.push('comment = ?');
+      values.push(updateData.comment);
+    }
+    if (updateData.image !== undefined) {
+      fields.push('image = ?');
+      values.push(updateData.image);
+    }
+
+    if (fields.length === 0) {
+      return { status: 400, message: 'No data to update' };
+    }
+
+    values.push(id);
+    await conn.query(`UPDATE reviews SET ${fields.join(', ')} WHERE id = ?`, values);
+
+    return { status: 201, message: 'Review updated successfully' };
+  } catch (error) {
+    console.error(error);
+    return { status: 500, message: 'Server error' };
+  } finally {
+    conn.release();
+  }
+};
+
+export const deleteReviewByIdService = async (id: number, userId: number) => {
+  const conn = await pool.getConnection();
+  try {
+    const result = await conn.query(`DELETE FROM reviews WHERE id = ? AND user_id = ?`, [id, userId]);
+    if ((result as any).affectedRows === 0) {
+      return { status: 404, message: 'Review not found or not authorized' };
+    }
+
+    return { status: 200, message: 'Review deleted successfully' };
+  } catch (error) {
+    console.error(error);
+    return { status: 500, message: 'Server error' };
+  } finally {
+    conn.release();
+  }
+};

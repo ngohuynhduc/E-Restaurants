@@ -10,6 +10,8 @@ import {
   getReservationsByRestaurant,
   getRestaurantsByOwner,
   updateReservationStatus,
+  getPromotionsByRestaurantId,
+  deletePromotionById,
 } from '../controllers/adminController';
 
 const router = express.Router();
@@ -23,6 +25,8 @@ router.put('/restaurants/:id', optionalAuthentication, updateRestaurantControlle
 router.get('/restaurant/reservations/:restaurantId', optionalAuthentication, getReservationsByRestaurant as any);
 router.get('/restaurant/owner/:ownerId', optionalAuthentication, getRestaurantsByOwner as any);
 router.patch('/reservation/:id', optionalAuthentication, updateReservationStatus as any);
+router.get('/promotions/:restaurantId', optionalAuthentication, getPromotionsByRestaurantId as any);
+router.delete('/promotions/:id', optionalAuthentication, deletePromotionById as any);
 
 // router.post('/hold', optionalAuthentication, reservationHold as any);
 // router.get('/check-availability', optionalAuthentication, checkAvailablility as any);

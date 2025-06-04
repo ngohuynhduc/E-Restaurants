@@ -163,11 +163,8 @@ export const getReservationsByRestaurantService = async (params: FilterParams) =
 
   let query = `
     SELECT 
-      r.*, 
-      u.full_name, 
-      u.email
+      r.*
     FROM reservations r
-    JOIN users u ON r.user_id = u.id
     WHERE r.restaurant_id = ?
   `;
   const values: any[] = [restaurantId];
@@ -203,4 +200,40 @@ export const getRestaurantsByOwnerService = async (ownerId: number) => {
 
 export const updateReservationStatusService = async (id: number, status: string) => {
   await pool.query('UPDATE reservations SET status = ? WHERE id = ?', [status, id]);
+};
+
+export const getPromotionsByRestaurantIdService = async (restaurantId: number) => {
+  const conn = await pool.getConnection();
+  try {
+    const promotions = await conn.query(
+      `SELECT * FROM promotions 
+       WHERE restaurant_id = ? 
+       ORDER BY created_at DESC`,
+      [restaurantId],
+    );
+
+    return { status: 200, data: promotions };
+  } catch (error) {
+    console.error('Error in getPromotionsByRestaurantIdService:', error);
+    return { status: 500, message: 'Server error' };
+  } finally {
+    conn.release();
+  }
+};
+
+export const deletePromotionByIdService = async (id: number) => {
+  const conn = await pool.getConnection();
+  try {
+    const result = await conn.query(`DELETE FROM promotions WHERE id = ?`, [id]);
+    if ((result as any).affectedRows === 0) {
+      return { status: 404, message: 'Promotion not found' };
+    }
+
+    return { status: 200, message: 'Promotion deleted successfully' };
+  } catch (error) {
+    console.error('Error deleting promotion:', error);
+    return { status: 500, message: 'Server error' };
+  } finally {
+    conn.release();
+  }
 };

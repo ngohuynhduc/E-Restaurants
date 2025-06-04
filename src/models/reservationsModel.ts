@@ -1,6 +1,8 @@
 import { reservationType } from '../shares/type';
 import pool from '../config/db';
 import { PoolConnection } from 'mariadb';
+import { sendReservationConfirmationEmail } from './emailModel';
+import { formatDateToVietnamese } from '../utils/dateTime';
 
 function determineTimeSlot(arrival_time: string) {
   const hour = Number(arrival_time.split(':')[0]);
@@ -178,8 +180,8 @@ export const reservationHoldService = async (params: reservationType) => {
 
     const reservationResult = await conn.execute(
       `INSERT INTO reservations (restaurant_id, user_id, phone, guest_count, date, arrival_time, time_slot, note)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [restaurant_id, user_id, phone, guest_count, date, arrival_time, timeSlot, note || null],
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [restaurant_id, user_id || null, phone, guest_count, date, arrival_time, timeSlot, note || null],
     );
     console.log('🚀 ~ reservationHoldService ~ reservationResult:', reservationResult);
 
@@ -211,7 +213,7 @@ export const reservationHoldService = async (params: reservationType) => {
   }
 };
 
-export const reservationService = async (reservation_id: number, phone: string, note: string) => {
+export const reservationService = async (reservation_id: number, phone: string, note: string, email: string, full_name: string, promotion_id: number) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -228,9 +230,37 @@ export const reservationService = async (reservation_id: number, phone: string, 
 
     await conn.query(`UPDATE reservation_tables SET status = 'CONFIRMED', hold_expiration = NULL WHERE reservation_id = ?`, [reservation_id]);
 
-    await conn.query(`UPDATE reservations SET status = 'CONFIRMED', phone = ?, note = ? WHERE id = ?`, [phone, note || null, reservation_id]);
+    await conn.query(`UPDATE reservations SET status = 'CONFIRMED', phone = ?, note = ?, email = ?, full_name = ?, promotion_id = ? WHERE id = ?`, [
+      phone,
+      note || null,
+      email,
+      full_name,
+      promotion_id || null,
+      reservation_id,
+    ]);
+
+    const promotionData = await conn.query(`SELECT * FROM promotions WHERE id = ?`, [promotion_id]);
 
     await conn.commit();
+
+    if (email) {
+      const reservationDetails = await conn.query(`SELECT * FROM reservations WHERE id = ?`, [reservation_id]);
+      const { date, arrival_time, guest_count, restaurant_id } = reservationDetails[0];
+      const restaurantDetails = await conn.query(`SELECT name FROM restaurants WHERE id = ?`, [restaurant_id]);
+      const { name: restaurantName } = restaurantDetails[0];
+      console.log('🚀 ~ reservationService ~ restaurantName:', restaurantName, date, arrival_time, guest_count);
+      await sendReservationConfirmationEmail({
+        to: email,
+        restaurantName,
+        date: formatDateToVietnamese(date),
+        time: arrival_time,
+        guestCount: guest_count,
+        full_name,
+        phone,
+        promotionData: promotionData[0]?.description || null,
+      });
+    }
+
     return { message: 'Đặt bàn thành công!', status: 200 };
   } catch (error) {
     await conn.rollback();
@@ -294,7 +324,24 @@ export const getReservationByIdService = async (reservationId: number, holding =
       };
     }
 
-    const [restaurant] = await conn.query(`SELECT name, address FROM restaurants WHERE id = ?`, [reservation.restaurant_id]);
+    const [restaurant] = await conn.query(
+      `SELECT name, address, (
+          SELECT JSON_ARRAYAGG(
+            JSON_OBJECT(
+              'id', p.id,
+              'title', p.title,
+              'description', p.description,
+              'discount', p.discount,
+              'start_date', p.start_date,
+              'end_date', p.end_date
+            )
+          )
+          FROM promotions p
+          WHERE p.restaurant_id = ?
+            AND CURDATE() BETWEEN p.start_date AND p.end_date
+        ) AS promotions FROM restaurants WHERE id = ?`,
+      [reservation.restaurant_id, reservation.restaurant_id],
+    );
 
     const tableRows = await conn.query(
       `
@@ -343,3 +390,44 @@ export async function releaseExpiredHolds(conn: PoolConnection) {
 
   return { released: reservationIds.length };
 }
+
+export const reservationCancelService = async (params: { reservation_id: number; user_id: number }) => {
+  const { reservation_id, user_id } = params;
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const rows = await conn.query(`SELECT * FROM reservations WHERE id = ? AND user_id = ? AND status IN ('PENDING', 'CONFIRMED')`, [reservation_id, user_id]);
+
+    if ((rows as any[]).length === 0) {
+      return { message: 'Không đủ điều kiện hủy.', status: 400 };
+    }
+
+    const reservation = rows[0] as any;
+
+    const arrivalDateTime = new Date(`${reservation.date}T${reservation.arrival_time}`);
+    const now = new Date();
+    const diffMs = arrivalDateTime.getTime() - now.getTime();
+
+    if (diffMs < 2 * 60 * 60 * 1000) {
+      return { message: 'Không đủ điều kiện hủy', status: 400 };
+    }
+
+    await conn.beginTransaction();
+
+    await conn.query(`UPDATE reservations SET status = 'CANCELLED' WHERE id = ?`, [reservation_id]);
+
+    await conn.query(`DELETE FROM reservation_tables WHERE reservation_id = ?`, [reservation_id]);
+
+    await conn.commit();
+
+    return { message: 'Reservation cancelled successfully.', status: 200 };
+  } catch (error) {
+    await conn.rollback();
+    console.error(error);
+    return { message: 'Server error', status: 500 };
+  } finally {
+    conn.release();
+  }
+};
